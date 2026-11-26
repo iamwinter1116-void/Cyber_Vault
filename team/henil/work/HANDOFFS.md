@@ -250,3 +250,28 @@ NEW DEPENDENCIES: none
 OPEN RISKS / QUESTIONS FOR HUMANS: none beyond pending PostgreSQL/VM test window.
 NEXT: Continue 5-min checks on `origin/integration` for Bhavya's contract suite and Manas's `Makefile` updates.
 
+## 2026-11-26 · Phase 1 & 2 handoff: PostgreSQL auth regression test + Compose/dependency spec for Manas & Bhavya
+
+TASK: Phase 1 (real PostgreSQL denied-login/lockout regression test) & Phase 2 (API/notary Compose + dependency handoff)
+STATUS: partial (29 unit tests pass; `test_pg_routes.py` skipped locally pending PostgreSQL and ready for Manas to run against Compose `db`)
+CHANGED:
+  - `tests/unit/api/test_pg_routes.py` (real PostgreSQL regression test: unknown-email `401` + persisted `auth.login` `denied`, 5-fail lockout `403` + `auth.lockout` + `alert.login_bruteforce`, session/CSRF/quota `409`/logout, notary `run_tick` checkpoint + witness)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/services/notary /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 34 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (29 passed, 1 skipped in 2.79s)
+TESTS: 29 unit tests passed; `test_pg_denied_login_lockout_and_session_lifecycle` skipped locally (`ABH_DB_DSN` not set)
+VERIFIED FACTS (for Manas & Bhavya):
+  - Manas PostgreSQL rerun command: `ABH_DB_DSN=<postgres_owner_or_test_dsn> pytest tests/unit/api/test_pg_routes.py -v` (requires `contracts/schema.sql` applied; truncates/seeds `alpha` + `analyst.alpha`).
+  - API Compose interface: command `uvicorn services.api.main:app --host 0.0.0.0 --port 8000`; `control` network only (no host port); readiness `GET http://api:8000/api/v1/healthz` -> 200 `{"status":"ok","db":true}`; DB role `abh_api` via `ABH_DB_DSN`; mounts `quarantine` (`rw` at `ABH_QUARANTINE_DIR=/quarantine`) and `notary_ed25519.pub` (`ro` at `ABH_NOTARY_PUBKEY_PATH=/run/secrets/notary_ed25519.pub`); graceful SIGTERM shutdown closes `db_pool` via FastAPI lifespan; `make openapi` runs `python -m services.api.openapi_export`.
+  - Notary Compose interface: command `python -m services.notary`; `control` network only; DB role `abh_notary` via `ABH_DB_DSN`; mounts `notary_ed25519` (`ro` at `ABH_NOTARY_KEY_PATH=/run/secrets/notary_ed25519`, notary-only) and `witness` (`rw` at `ABH_WITNESS_PATH=/witness/checkpoints.ndjson`, notary-only); env `ABH_CHECKPOINT_EVERY_N=20`, `ABH_CHECKPOINT_EVERY_SEC=30`.
+  - PyPI-verified packages for Bhavya `evidence/VERSIONS.lock`: `pydantic==2.14.4`, `pydantic-settings==2.16.3`, `psycopg==3.3.9`, `psycopg-pool==3.3.3`, `psycopg-binary==3.3.9`, `cryptography==50.0.2`, `fastapi==0.165.0`, `uvicorn==0.54.0`, `argon2-cffi==25.1.0`, `python-multipart==0.0.34`, `PyYAML==6.0.4`, `httpx==0.28.1`, `pytest==9.2.0`, `ruff==0.17.6`, `mypy==2.4.1`.
+  - Code budgets: `core/abh_core` 192/300; `services/notary` 135/150; `services/api` 2058/1100 (documented in `team/henil/work/JOURNAL.md`).
+UNVERIFIED / ASSUMED:
+  - `test_pg_routes.py` and full-stack `tests/contract/`, `tests/security/`, `tests/e2e/` await Manas's Compose PostgreSQL / primary VM run.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - Ready to open PR from `work/henil` -> `integration` for Manas's review.
+NEXT: Continue 5-min checks on `origin/integration` and assist with any failures Manas reports from `test_pg_routes.py`.
+
