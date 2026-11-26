@@ -1,0 +1,12 @@
+# PROPOSAL ONLY. Do not install until dependency/transitive-package change control is approved.
+# API runtime direct versions copied from evidence/VERSIONS.lock on 2026-11-27.
+argon2-cffi==25.1.0
+cryptography==50.0.0
+fastapi==0.165.0
+psycopg[binary]==3.3.9
+psycopg-pool==3.3.3
+pydantic==2.14.4
+pydantic-settings==2.16.3
+python-multipart==0.0.34
+PyYAML==6.0.4
+uvicorn==0.54.0

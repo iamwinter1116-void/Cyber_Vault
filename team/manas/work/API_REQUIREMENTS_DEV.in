@@ -1,0 +1,8 @@
+# PROPOSAL ONLY. Do not install until dependency/transitive-package change control is approved.
+# Development/test overlay for the API runtime proposal.
+-r API_REQUIREMENTS_RUNTIME.in
+hypothesis==6.170.17
+httpx==0.28.1
+mypy==2.4.1
+pytest==8.4.2
+ruff==0.17.6

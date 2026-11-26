@@ -378,3 +378,49 @@ DEGRADED PATHS: none.
 NEW DEPENDENCIES: none.
 OPEN RISKS / QUESTIONS FOR HUMANS: the local site cannot authenticate until the API runs. Current Compose remains DB-only. The API/runner/notary/proxy service interface and dependency decisions are still prerequisites to an authenticated website demo. Sandbox controls remain disabled until a real supported runtime is available. O1, O3, O5, O9 and full O8 acceptance remain open.
 NEXT: resolve the already-recorded backend dependency policy, start the API against local PostgreSQL, then exercise real login, admin, audit, activity, and browser pages. Keep sandbox/workload actions disabled until their real workers exist; continue remaining non-sandbox local work without treating the website demo as objective acceptance.
+
+## 2026-11-27 · Initial combined API dependency candidate (superseded)
+
+TASK: Start the local backend phase by resolving the already-pinned API/test requirements into an auditable, hash-pinned candidate, without installing packages while the transitive-package change request remains open.
+STATUS: Candidate lock generated and dry-run validated. API service remains stopped; no endpoint or objective is accepted from this work.
+CHANGED: initial combined candidate `API_REQUIREMENTS_PROPOSAL.in/.lock` was produced during this investigation and then superseded by separate runtime and development candidates. Do not use the old names described in the historical commands below; the current artifacts and counts are in the next handoff entry and `team/manas/work/API_DEPENDENCY_PROPOSAL.md`. No approved dependency record or frozen docs were changed.
+COMMANDS AND RESULTS (Manas Windows host, `work/manas`):
+  - `uv --version` -> exit 0; uv 0.12.9 (9f9286029, 2026-09-01, x86_64-pc-windows-msvc).
+  - `uv pip compile team/manas/work/API_REQUIREMENTS_PROPOSAL.in --python-version 3.11 --universal --generate-hashes --output-file team/manas/work/API_REQUIREMENTS_PROPOSAL.lock` -> exit 0; `Resolved 44 packages`.
+  - Direct-pin comparison -> exit 0; 15 pins compared, no mismatches.
+  - `uv pip install --dry-run --no-cache --require-hashes --system -r team/manas/work/API_REQUIREMENTS_PROPOSAL.lock` -> exit 0; `Resolved 44 packages`; `Would download 44 packages`; `Would install 44 packages`. Dry-run only, no install.
+  - `python -m compileall -q core services tools` -> exit 0; syntax compile only.
+  - `python -c ... find_spec ...` -> FastAPI, Uvicorn, Pydantic, pydantic-settings, PyYAML, cryptography and httpx found; psycopg, psycopg_pool, argon2 and argon2_cffi_bindings missing.
+  - `git diff --check` -> exit 0.
+VERIFIED FACTS: the generated candidate is accepted by uv's hash-required dry-run resolver, all 15 direct pins match their recorded versions, and the backend dependencies remain absent after the dry run. This resolves the dependency graph, not package trust or approval.
+UNVERIFIED: no API process, auth, route, PostgreSQL API query, disposable DB suite, ruff, or mypy run against the proposed environment. Package licenses and all 29 transitives still require review/approval; the candidate has not been installed.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: no package installed. The candidate lists dependencies only.
+OPEN RISKS / QUESTIONS FOR HUMANS: the repository's all-member dependency/transitive change request is still pending. Manas's solo-development instruction does not approve a frozen dependency-policy change. A reviewed/approved lock is required before the real API can start on this Python environment.
+NEXT: complete the required package/security review and record the decision through the existing CR process; only then install in an isolated venv and proceed with the real DB-backed API checks. Continue backend source review without changing frozen contracts or installing packages meanwhile.
+
+## 2026-11-27 · Backend dependency split and local database credential files
+
+TASK: Continue L1 backend enablement without installing unapproved packages; make the generated service-role database credentials usable by a real Linux client container.
+STATUS: Dependency closures are hash-resolved but still proposals. Role-specific password files have been generated and verified against the live local PostgreSQL service. No API process or endpoint is claimed running.
+CHANGED: `db/init/generate_secrets.py` now creates `secrets/abh_api.pgpass`, `secrets/abh_runner.pgpass`, and `secrets/abh_notary.pgpass` from the existing role passwords. New `db/init/with_pgpass.sh` makes a private mode-600 copy in writable temporary storage and `exec`s the requested process with `PGPASSFILE` set. Added `db/init/test_generate_secrets.py` and separate runtime/dev candidate locks; corrected `API_DEPENDENCY_PROPOSAL.md`; updated this handoff and `PLAN_M1_M3.md`. All actual secret files remain ignored and were not committed.
+DEPENDENCY CANDIDATE RESULTS:
+  - `uv pip compile ...API_REQUIREMENTS_RUNTIME.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 27 packages, 510 artifact hashes (10 direct + 17 resolver-added).
+  - `uv pip compile ...API_REQUIREMENTS_DEV.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 44 packages, 867 artifact hashes (15 direct + 29 resolver-added).
+  - `uv pip install --dry-run --no-cache --require-hashes --system -r ...RUNTIME.lock` -> exit 0; would download/install 27; nothing installed.
+  - Same dry-run for `...DEV.lock` -> exit 0; would download/install 44; nothing installed.
+  - Direct pins are unchanged from the candidate inputs. Runtime/dev candidates and their resolver-added packages remain subject to review and formal approval; no license/security review is claimed.
+DATABASE CREDENTIAL EVIDENCE (Windows Docker Desktop, real local Compose PostgreSQL):
+  - `python -m compileall -q db/init/generate_secrets.py` -> exit 0; syntax only.
+  - `python -m pytest db/init/test_generate_secrets.py -q` -> 4 passed; covers valid format, role-specific file content, idempotence, no credential output, and refusal of invalid/mismatched credentials.
+  - `docker run ... /bin/sh -n /with_pgpass.sh` against the pinned PostgreSQL client image -> exit 0.
+  - The first repeat DB probe exited nonzero because its `ROLE` environment option was placed after the image command; psql correctly defaulted to `root` and rejected the connection. The corrected invocation put `--env ROLE=<service-role>` before the image and passed all three roles below.
+  - `make secrets` -> exit 0; existing six base credentials and key pair preserved; three corresponding pgpass files present.
+  - One-off ephemeral postgres-client containers on `sfic_control` invoked `db/init/with_pgpass.sh` with each role's generated password file; the client observed passfile mode `600`, and `current_user` returned `abh_api`, `abh_runner`, and `abh_notary` respectively; all three exited 0. Credential contents were not printed.
+  - The raw Windows-host bind mount reported mode 777 inside Linux. Since PostgreSQL libpq ignores password files accessible by group/world, directly mounting it as `PGPASSFILE` is not viable. The new helper is verified for a real test client. Compose does not yet define an API service or invoke the helper; API startup remains pending.
+  - Existing PostgreSQL health/schema evidence remains: DB healthy, 9 public tables, roles have audit SELECT/INSERT but not UPDATE/DELETE. Compose remains DB-only; no API service is running.
+  - `python db/init/report_budgets.py` -> exit 1: core 180/300 OK; runner 850/800 OVER; API 2000/1100 OVER; sandbox missing/450; notary 131/150 OK; verifier 144/180 OK; web/src 557/1800 OK; host 136/150 OK.
+  - `git diff --check` -> exit 0; focused `python -m compileall -q db/init/generate_secrets.py db/init/test_generate_secrets.py` -> exit 0.
+UNVERIFIED: API imports/startup, health and auth routes, database operations through API, full unit/security suites, runtime package licenses/security, Linux image behavior, and final service entrypoint. No objective or gate is green.
+OPEN DEPENDENCIES: dependency/transitive approval; API image/base-image decision; formal API budget change (reported 2000/1100); wire the tested helper into the eventual API service entrypoint.
+NEXT: finish reviewable dependency metadata and backend source review in parallel with no installation; once formal policy approvals are recorded, install only the approved lock in an isolated venv, create the real API service/container wiring, invoke the tested helper from its entrypoint, and execute health/auth/database/API test journeys against the live local PostgreSQL.
