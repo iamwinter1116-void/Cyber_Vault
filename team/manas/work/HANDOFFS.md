@@ -97,3 +97,25 @@ Compose 5.5.1; this is not the Linux demo host. Changed `compose.yaml` and `Make
 Status: M1 database Compose slice passed locally. The full Compose stack, canonical remaining Make targets, CI,
 Linux preflight, and G0 are still open. The API denied-login audit rollback reported above is still open on Henil's branch.
 No mock, stub, simulation, or Linux-host pass is claimed.
+
+## 2026-11-26 · M1 secrets target and teammate activity review
+
+Task: Manas-owned `make secrets` and review of new owner heads. Host: Windows with Python 3.11 and an already
+installed `cryptography` 50.0.1. Changed `Makefile` and `db/init/generate_secrets.py`.
+
+- `make secrets PYTHON=python` exited 0 twice. It preserved the hashes of the four existing database password
+  files and created a raw 32-byte Ed25519 seed plus its 32-byte public key as hex. A sign/verify operation using
+  the generated pair passed. All six files are under ignored `secrets/`; no value was printed or committed.
+- A temporary-directory run created six files, ran again without changes, then rejected a deliberately mismatched
+  public key. The disposable test files were removed by Python's TemporaryDirectory.
+- `git diff --check` exited 0. Default `PYTHON=python3` is for the eventual Linux host and was not run here;
+  the Windows invocation explicitly overrides it with the installed `python` command.
+- `origin/work/henil` advanced to `579d2af`: 31 API routes registered and a notary service. Its handoff reports
+  29 unit tests passing but live PostgreSQL/witness checks pending; the API/notary line budgets are exceeded
+  pending Henil's A7 trim. The denied-login audit rollback previously observed remains in `auth.py`.
+- `origin/work/parth` advanced to `9c92eb9`: reconcile SQL, object cleanup, storage ladder and template loading.
+  Its handoff reports 30 local tests passing and a 6-case PostgreSQL test not run. Runner package versions are
+  listed there for Bhavya to add to `evidence/VERSIONS.lock`; that entry is not yet on Bhavya's branch.
+
+Next: after Bhavya records the runner dependencies, execute Parth's six PostgreSQL tests on a disposable Compose
+project with a temporary combined checkout of Parth and Henil. Do not count this as Docker/runsc acceptance.
