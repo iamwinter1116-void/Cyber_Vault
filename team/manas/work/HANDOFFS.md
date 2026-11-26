@@ -371,6 +371,7 @@ COMMANDS AND RESULTS (Manas Windows host, `work/manas`):
   - `python db/init/report_budgets.py` -> exit 1; core 180/300 OK, runner 850/800 OVER, API 2000/1100 OVER, sandbox MISSING/450, notary 131/150 OK, verifier 144/180 OK, web/src 553/1800 OK, host 136/150 OK.
   - `git diff --check` -> exit 0.
   - `docker compose ps` -> the only service is PostgreSQL (`sfic-db-1`, healthy); no API, runner, notary, or proxy is running.
+  - `npm run dev` in `web/` -> Vite started at `http://127.0.0.1:5173/` and remains running for local preview (session 50512); GET `/` and `/files` -> HTTP 200; proxied `/api/v1/healthz` -> HTTP 502 because no API is listening on port 8000.
 VERIFIED FACTS: UI action controls are guarded by the default-off Vite flag; the two workload pages display API-returned job rows only; frontend production build and npm audit pass. No new packages were installed.
 UNVERIFIED: authenticated browser behavior, route-level visual review, and any service-backed workload operation. API dependencies remain unavailable in the current Python environment (`psycopg`, `psycopg_pool`, `argon2`); the dependency/transitive approval question remains open. No sandbox action, Docker sandbox, runsc, workload, or acceptance test ran.
 DEGRADED PATHS: none.
