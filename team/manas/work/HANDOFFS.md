@@ -185,3 +185,22 @@ from the 33 named owner task prompts. This is not objective acceptance: 0/9 mand
 0/5 gates have the required host evidence. The later Henil database test still needs a disposable-database
 guard and separate owner/API DSNs before it can be run or integrated. Bhavya's dependency lock and security
 test discrepancies remain open. No Linux-host pass is claimed.
+
+## 2026-11-26 · M1 phase 1 database and Make interface
+
+TASK: M1 phase 1, using `team/manas/work/PLAN_M1_M3.md`.
+STATUS: local command wiring and database initialization verified; M1 remains partial because `api`, `runner`, `notary`, `proxy`, console, and approved dependency entries are absent.
+CHANGED: `Makefile`, `db/init/require.py`, `team/manas/work/PLAN_M1_M3.md`, this handoff.
+COMMANDS RUN (Windows Docker Desktop, `work/manas`):
+  - `docker compose config --quiet` -> 0; the existing `sfic-db-1` stayed healthy throughout.
+  - `make secrets` -> 0, existing secret files preserved; `make db-up` -> 0, database healthy.
+  - `docker compose -p abh-m1-check -f compose.yaml -f T:\CyberVaultReview\m1-db-override.yaml up -d --wait db` -> 0 on a new `abhedya_test` database. SQL verification -> 0: nine public tables, two audit protection triggers, `abh_api` cannot UPDATE audit_log; TCP login as `abh_api`, `abh_runner`, and `abh_notary` -> 0. `down -v` -> 0 removed only the disposable project; `sfic-db-1` remained healthy.
+  - `make up`, `check-fast`, `test-contract`, `test-security`, `test-e2e`, `scan`, `demo-reset` -> nonzero refusal, each naming its missing real service, console, OpenAPI file, scan runner, or reset script.
+  - `python db/init/require.py placeholders` -> 1: `services/api/schemas.py:154` still names `stub-vulnerable` and `stub-guarded` (Henil-owned O9 contract interpretation; no edit made here).
+  - `make openapi` -> nonzero: `ModuleNotFoundError: psycopg` in this Windows Python environment. `make tamper-drill` without opt-in -> nonzero refusal; no database change.
+  - `python -m compileall -q db/init` -> 0; `git diff --check` -> 0.
+VERIFIED FACTS: Canonical Make target names now map to existing code or an explicit refusal. The fresh DB init script applies the frozen schema and role passwords. No host isolation or gate test was run.
+UNVERIFIED: Full stack startup, owner service container images, TypeScript checks, OpenAPI generation, CI, runner PostgreSQL suite, and Linux/runsc tests.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: none installed.
+OPEN RISKS / NEXT OWNERS: Bhavya must record missing allowlisted package versions (`psycopg-binary`, `docker`, `pydantic-settings` and service build dependencies) in `evidence/VERSIONS.lock` before installation. Henil owns the O9 stub-named schema field. Owners must supply actual service image/build definitions before M1 phase 2 Compose wiring.
