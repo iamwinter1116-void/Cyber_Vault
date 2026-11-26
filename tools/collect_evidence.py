@@ -43,12 +43,17 @@ def _status_for_id(test_id: str, results: dict[str, str]) -> str:
     return "FAIL" if "FAIL" in matched else ("SKIP" if "SKIP" in matched else "PASS")
 
 
+def _write_lf(path: Path, text: str) -> None:
+    clean = "\n".join(line.rstrip() for line in text.replace("\r\n", "\n").splitlines()).rstrip("\n") + "\n"
+    path.write_bytes(clean.encode("utf-8"))
+
+
 def build_evidence(repo_root: Path) -> None:
     ev_dir = repo_root / "evidence"
     ev_dir.mkdir(parents=True, exist_ok=True)
     prior_src = repo_root / "docs" / "14_PRIOR_ART.md"
     if prior_src.exists():
-        (ev_dir / "prior-art.md").write_text(prior_src.read_text(encoding="utf-8"), encoding="utf-8")
+        _write_lf(ev_dir / "prior-art.md", prior_src.read_text(encoding="utf-8"))
 
     parts: list[str] = []
     bug_src = repo_root / "docs" / "09_BUG_JOURNAL.md"
@@ -56,14 +61,14 @@ def build_evidence(repo_root: Path) -> None:
         parts.append(bug_src.read_text(encoding="utf-8"))
     for jpath in sorted((repo_root / "team").glob("*/work/JOURNAL.md")):
         parts.append(f"---\n<!-- {jpath.relative_to(repo_root).as_posix()} -->\n" + jpath.read_text(encoding="utf-8").strip())
-    (ev_dir / "bug-journal.md").write_text("\n\n".join(p.strip() for p in parts if p.strip()) + "\n", encoding="utf-8")
+    _write_lf(ev_dir / "bug-journal.md", "\n\n".join(p.strip() for p in parts if p.strip()))
 
     results = _parse_junit_results(ev_dir / "tests")
     lines = ["# Evidence Index (generated)", "", "| Objective | Description | Test ID | Status | Evidence |", "| --- | --- | --- | --- | --- |"]
     for oid, desc, tids in OBJECTIVES:
         for tid in tids:
             lines.append(f"| {oid} | {desc} | {tid} | {_status_for_id(tid, results)} | `evidence/tests/` |")
-    (ev_dir / "INDEX.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _write_lf(ev_dir / "INDEX.md", "\n".join(lines))
 
 
 def main() -> int:

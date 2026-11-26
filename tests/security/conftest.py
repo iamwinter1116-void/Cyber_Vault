@@ -54,6 +54,19 @@ def create_env_and_wait(client: httpx.Client, csrf: str, name: str, size: str = 
     pytest.fail(f"Env {env_id} did not reach running within 30s")
 
 
+def delete_env_and_wait(client: httpx.Client, csrf: str, env_id: str) -> None:
+    dr = client.delete(f"{API_BASE}/envs/{env_id}", headers={"X-CSRF-Token": csrf})
+    assert dr.status_code == 202, f"Delete env {env_id} failed: {dr.status_code} {dr.text}"
+    deadline = time.monotonic() + 30.0
+    while time.monotonic() < deadline:
+        r = client.get(f"{API_BASE}/envs/{env_id}")
+        assert r.status_code == 200
+        if r.json()["observed_state"] in ("destroyed", "failed"):
+            return
+        time.sleep(0.5)
+    pytest.fail(f"Env {env_id} did not reach destroyed/failed within 30s")
+
+
 def exec_in_env(client: httpx.Client, csrf: str, env_id: str, command: str, container: str = "toolbox") -> dict[str, Any]:
     resp = client.post(
         f"{API_BASE}/envs/{env_id}/exec",

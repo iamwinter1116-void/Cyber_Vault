@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import platform
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -41,7 +43,7 @@ def test_t_iso_02_sandbox_profile(stack_url: str) -> None:
             assert req in labels
 
 
-def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: pytest.FixtureRequest) -> None:
+def test_t_iso_03_cross_team_network_isolation(stack_url: str) -> None:
     """T-ISO-03: Alpha toolbox cannot TCP connect/ICMP/DNS to bravo containers."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
@@ -54,10 +56,12 @@ def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: 
         tcp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {ip} 80 3")["result"]["output"].strip().splitlines()[-1])
         assert tcp["reachable"] is False, f"Cross-team TCP reachability succeeded to {ip}"
         icmp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_icmp {ip} 3")["result"]["output"].strip().splitlines()[-1])
-        if icmp.get("sent"):
-            assert icmp["reachable"] is False, f"Cross-team ICMP reachability succeeded to {ip}"
-        else:
-            record_property("icmp_note", f"ICMP not testable under cap_drop=ALL for {ip}: {icmp.get('error')}")
+        if not icmp.get("sent"):
+            pytest.fail(
+                f"T-ISO-03 ICMP probe could not send under cap_drop=ALL for {ip}: {icmp.get('error')} "
+                "(requires docs/06_VERIFICATION.md CR; cannot report ICMP isolation as green)"
+            )
+        assert icmp["reachable"] is False, f"Cross-team ICMP reachability succeeded to {ip}"
     for c in bravo_containers:
         cname = c["Name"].lstrip("/")
         dns = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_dns {cname} 3")["result"]["output"].strip().splitlines()[-1])
@@ -65,24 +69,58 @@ def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: 
 
 
 def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
-    """T-ISO-04: Sandbox cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443)."""
+    """T-ISO-04: Both toolbox and target cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443); detonator loopback-only."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-04-alpha")
-    lan_ip = os.environ.get("ABH_HOST_LAN_IP", "127.0.0.1")
-    gw_ips = {
-        net["Gateway"]
+    lan_ip = os.environ.get("ABH_HOST_LAN_IP", "")
+    assert lan_ip and lan_ip != "127.0.0.1", "ABH_HOST_LAN_IP must be set to the host LAN IP (not 127.0.0.1)"
+    net_names = {
+        net_name
         for c in docker_managed_inspect()
         if c["Config"]["Labels"].get("abh.env_id") == env_a["id"]
-        for net in c["NetworkSettings"]["Networks"].values()
-        if net.get("Gateway")
+        for net_name in c["NetworkSettings"]["Networks"]
     }
+    assert net_names, "No Docker networks found for alpha env"
+    insp_net = subprocess.run(["docker", "network", "inspect", *sorted(net_names)], capture_output=True, text=True, check=False)
+    assert insp_net.returncode == 0, f"docker network inspect failed: {insp_net.stderr}"
+    gw_ips: set[str] = set()
+    for n in json.loads(insp_net.stdout):
+        for cfg in (n.get("IPAM") or {}).get("Config") or []:
+            if cfg.get("Gateway"):
+                gw_ips.add(cfg["Gateway"])
+        if not gw_ips:
+            assert n.get("Internal") is True, f"Network {n.get('Name')} has no gateway and is not internal"
+            assert (n.get("Options") or {}).get("com.docker.network.bridge.gateway_mode_ipv4") == "isolated", (
+                f"Network {n.get('Name')} has no gateway and is not isolated mode"
+            )
     targets = [(gw, p) for gw in gw_ips for p in (443, 5432, 8000)] + [
         (lan_ip, 443), (lan_ip, 5432), (lan_ip, 8000), ("1.1.1.1", 53), ("1.1.1.1", 443),
     ]
-    for host, port in targets:
-        job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {host} {port} 3")
-        out = json.loads(job["result"]["output"].strip().splitlines()[-1])
-        assert out["reachable"] is False, f"Egress/control-plane reachable at {host}:{port}"
+    for container in ("toolbox", "target"):
+        for host, port in targets:
+            job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {host} {port} 3", container=container)
+            out = json.loads(job["result"]["output"].strip().splitlines()[-1])
+            assert out["reachable"] is False, f"{container} reached egress/control-plane at {host}:{port}"
+
+    r_det = ca.post(
+        f"{API_BASE}/files",
+        headers={"X-CSRF-Token": csrfa},
+        files={"file": ("ifcheck.sh", b"#!/bin/sh\nls -1 /sys/class/net\n", "text/x-shellscript")},
+        data={"detonate": "true"},
+    )
+    assert r_det.status_code == 202
+    jid = r_det.json()["id"]
+    for _ in range(90):
+        jr = ca.get(f"{API_BASE}/jobs/{jid}").json()
+        if jr["status"] in ("done", "timeout", "error"):
+            det = jr["result"]["detonation"]
+            assert det is not None and det["exit_code"] == 0
+            ifaces = [line.strip() for line in det["output_tail"].splitlines() if line.strip()]
+            assert ifaces == ["lo"], f"Detonator has non-loopback interfaces: {ifaces}"
+            break
+        time.sleep(1.0)
+    else:
+        pytest.fail("Detonator interface check job did not finish")
 
 
 def test_t_iso_05_cross_team_api_returns_404(stack_url: str) -> None:
@@ -96,11 +134,22 @@ def test_t_iso_05_cross_team_api_returns_404(stack_url: str) -> None:
     assert ca.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfa}).status_code == 404
     assert ca.delete(f"{API_BASE}/envs/{bid}", headers={"X-CSRF-Token": csrfa}).status_code == 404
     assert ca.post(f"{API_BASE}/envs/{bid}/exec", headers={"X-CSRF-Token": csrfa}, json={"command": "id"}).status_code == 404
-    with ca.stream("GET", f"{API_BASE}/stream") as stream:
-        cb.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfb})
-        for line in stream.iter_lines():
+    with cb.stream("GET", f"{API_BASE}/stream") as bravo_stream, ca.stream("GET", f"{API_BASE}/stream") as alpha_stream:
+        assert cb.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfb}).status_code == 202
+        bravo_saw_event = False
+        b_deadline = time.monotonic() + 5.0
+        for line in bravo_stream.iter_lines():
+            if bid in line:
+                bravo_saw_event = True
+                break
+            if time.monotonic() > b_deadline:
+                break
+        assert bravo_saw_event, f"Control failed: bravo stream did not emit event for {bid}"
+
+        a_deadline = time.monotonic() + 5.0
+        for line in alpha_stream.iter_lines():
             assert bid not in line, f"Cross-team stream leaked bravo env {bid}"
-            if line.startswith("event: heartbeat"):
+            if time.monotonic() > a_deadline:
                 break
 
 
@@ -115,12 +164,17 @@ def test_t_iso_06_env_mounts_socket_and_flags(stack_url: str) -> None:
     info = json.loads(env_job["result"]["output"].strip().splitlines()[-1])
     assert not any(v.startswith("ABH_") for v in info["env_vars"])
     assert info["uid"] == 1000
-    assert not any("docker.sock" in str(m) for m in info.get("mounts", []))
+    assert info.get("cap_eff") == "0000000000000000", f"Non-empty CapEff: {info.get('cap_eff')}"
+    assert "mounts" in info and isinstance(info["mounts"], list), f"probe_env missing mounts: {info}"
+    assert not any("docker.sock" in str(m) for m in info["mounts"])
     sock_check = exec_in_env(ca, csrfa, env_a["id"], "test -e /var/run/docker.sock")
     assert sock_check["result"]["exit_code"] != 0
 
     w_job = exec_in_env(ca, csrfa, env_a["id"], "probe_write /etc/abhedya_test")
-    assert json.loads(w_job["result"]["output"].strip().splitlines()[-1])["ok"] is False
+    w_out = json.loads(w_job["result"]["output"].strip().splitlines()[-1])
+    assert w_out["ok"] is False
+    err_txt = str(w_out.get("error") or "").lower()
+    assert "erofs" in err_txt or "read-only" in err_txt, f"Expected read-only error (EROFS), got {w_out}"
 
     host_flag = exec_in_env(cb, csrfb, env_b["id"], "cat /var/lib/abhedya/flag_host")
     assert host_flag["result"]["exit_code"] != 0
