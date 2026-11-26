@@ -560,3 +560,32 @@ CHECKED: integration 59e49dc; `python db/init/report_budgets.py` -> exit 1, "ser
 HOLD (Manas): B2 image work, B6 and runner growth stay on hold until all four decisions are recorded and the
   CRs are applied in docs/03 and docs/05.
 ```
+
+## 2026-11-27 · PAUSE CHECKPOINT (Parth asked to stop and save state) · this commit
+
+```
+TASK: Manas: review CR 2 wording against O9 and the docs/02 cut order; separate mandatory static triage from
+  optional detonation. Keep B2 image work, B6 and runner growth on hold; keep host items pending.
+DONE: CR 2 in team/parth/work/CR_ENTRIES_FOR_09.md and the Request section of CR_PROPOSAL_runner_budget.md
+  rewritten from the exact texts: O9 (docs/05 line 18), docs/02 section 5 cut 5, docs/04 sections 5 and 8
+  (R20 `detonate`; "detonator ... when requested"), docs/08 section 6, T-WL-02 (docs/06). Part (a) static
+  triage = mandatory; part (b) detonation = optional per request (R20 flag) and cuttable per build (cut 5,
+  a team decision). If (b) is cut, T-WL-02's detonation case and T-ISO-04's detonator subcheck are out of
+  scope and how `detonate: true` is answered needs a decision (no silent fallback). Change itself unchanged:
+  800 -> 1000.
+FOUND (existing B1 code vs docs/04 section 8, not fixed: B6 is on hold): templates.py requires both
+  file-analysis containers and DockerOps.provision starts every container, so `detonator` would start even
+  when not requested. Recorded as known B6 work in CR 2.
+FOR A/C/D (note, CR 1 text unchanged): docs/04 section 8 describes toolbox as "shell, curl, nmap-class tools";
+  CR 1 proposes an in-repo Python TCP-connect scanner (B1 prompt) and no nmap package.
+PENDING DECISION: Parth's B = yes on CR 2 was given before the wording was clarified. Reconfirmation was asked
+  and NOT answered (session paused). Until Parth confirms, treat B on CR 2 as "yes on the earlier wording,
+  reconfirmation pending". B = yes on CR 1 is unaffected.
+STATE AT PAUSE: work/parth synced with integration 59e49dc (fast-forward) before this commit; no runner code
+  changed since 7f86459; `services/runner: 850/800 OVER` (make budget-report); 50 pure + 14 live PG tests
+  last passed on 7f86459 (Manas). Open PRs from me: #26 (B decision record). Bhavya PR #20 open.
+ON HOLD: B2 images/probes, B6, runner growth (until A, C, D vote, CRs entered in docs/09 and applied to
+  docs/03 and docs/05). PENDING ON HOST: all Docker/runsc acceptance, B5 in-sandbox exec checks, stop-time
+  measurement, V1 same-path mount, socket gid, ICMP, /sys/class/net, OOM scope (HOST_TEST_PLAN.md).
+NEXT ON RESUME: get Parth's CR 2 reconfirmation; then wait for A/C/D votes relayed by Manas.
+```
