@@ -1,4 +1,4 @@
-.PHONY: preflight secrets db-up db-down up down check-fast budget-report test-contract test-security test-e2e scan openapi evidence demo-reset tamper-drill
+.PHONY: preflight secrets db-up db-down up down check-fast budget-report test-contract test-security test-e2e scan openapi evidence demo-reset local-admin tamper-drill
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= python
@@ -7,6 +7,9 @@ PYTHON ?= python3
 endif
 
 CASE ?=
+LOCAL_DB_HOST ?= 127.0.0.1
+LOCAL_DB_PORT ?= 15432
+LOCAL_DB_NAME ?= abhedya
 
 preflight:
 	sh host/preflight.sh
@@ -33,7 +36,7 @@ check-fast:
 	$(PYTHON) -m ruff check core services tests/unit
 	$(PYTHON) -m mypy --strict core/abh_core services/api services/notary services/runner tests/unit
 	cd web && npx --no-install tsc --noEmit
-	$(PYTHON) -m pytest tests/unit -q
+	$(PYTHON) -m pytest tests/unit db/init/test_generate_secrets.py -q
 	$(PYTHON) db/init/require.py placeholders
 
 budget-report:
@@ -64,6 +67,9 @@ evidence:
 demo-reset:
 	$(PYTHON) db/init/require.py demo-reset
 	$(PYTHON) db/init/demo_reset.py
+
+local-admin:
+	$(PYTHON) -m db.init.bootstrap_local_admin --host "$(LOCAL_DB_HOST)" --port "$(LOCAL_DB_PORT)" --database "$(LOCAL_DB_NAME)"
 
 tamper-drill:
 	$(PYTHON) tools/tamper_drill.py --case "$(CASE)"

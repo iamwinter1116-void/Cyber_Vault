@@ -6,9 +6,9 @@ from typing import Annotated, cast
 from uuid import UUID
 
 import psycopg
-from core.abh_core.audit import append as audit_append
 from fastapi import APIRouter, Depends, Query
 
+from core.abh_core.audit import append as audit_append
 from services.api.authz import ScopedAuth, authorize, record_denied
 from services.api.middleware import ApiError
 from services.api.schemas import TeamCreate, TeamOut, TeamQuotaUpdate, TeamUsageOut

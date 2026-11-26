@@ -7,6 +7,7 @@ import base64
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+
 from services.api.main import create_app
 from services.api.schemas import EnvCreate, LoginRequest
 from services.api.security import (

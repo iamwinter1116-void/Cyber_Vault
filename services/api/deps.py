@@ -9,11 +9,11 @@ from typing import Literal, cast
 from uuid import UUID
 
 import psycopg
-from core.abh_core.audit import Actor
-from core.abh_core.settings import Settings
 from fastapi import Request
 from psycopg_pool import ConnectionPool
 
+from core.abh_core.audit import Actor
+from core.abh_core.settings import Settings
 from services.api.middleware import ApiError
 from services.api.schemas import UserOut
 from services.api.security import hash_session_token

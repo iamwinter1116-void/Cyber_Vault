@@ -317,3 +317,134 @@ REVIEW: T-RES-01 alert timing still is not tied to the OOM timestamp; T-RES-02 d
   a recorded cut decision. No live security test was run here.
 NEXT: Bhavya revises PR #20; all four review image/dependency and runner-budget CRs. Manas wires real
   services only after owner images and package decisions, then runs OpenAPI and local integration checks.
+
+## 2026-11-26 · Manas real console integration slice
+
+TASK: Continue the solo implementation with a real React console slice that can be built locally and consumes only implemented API behavior.
+STATUS: Partial. The frontend builds; API-backed login and the integrated environment journey are not runnable because the current Compose stack has only PostgreSQL and the local Python environment lacks recorded runtime dependencies. No objective or gate is green.
+CHANGED: `web/src/api.ts`, `web/src/ui/App.tsx`, `web/src/ui/styles.css`, `web/README.md`, `.gitignore`. Session refresh calls `/auth/me`; login confirms the cookie-backed session before changing to authenticated UI; activity connects to `/stream`; isolation status uses the API overview response. Removed remote Google Fonts and bound Vite to loopback. Added ignores for generated web output. `web/src` is 238/1800 counted source lines.
+COMMANDS RUN (Manas Windows laptop, branch `work/manas`):
+  - `npm run build` in `web/` -> exit 0; TypeScript and Vite completed, 17 modules transformed.
+  - `npm audit --audit-level=low` -> exit 0; `found 0 vulnerabilities`.
+  - `git diff --check` -> exit 0.
+  - `docker compose ps` -> exit 0; existing `sfic-db-1` Up/healthy; it was not restarted or modified.
+  - `docker compose exec -T db pg_isready -U postgres -d abhedya` -> exit 0; accepting connections.
+  - Read-only PostgreSQL query -> exit 0; `abhedya|9`; `abh_api`, `abh_runner`, `abh_notary` are all non-superuser/non-createdb; audit triggers `audit_no_truncate`, `audit_no_update_delete`, `audit_notify_trg` present.
+  - `make budget-report` and `make check-fast` -> exit 1 at report: core 180/300; runner 850/800 OVER; API 2000/1100 OVER; sandbox MISSING/450; notary 131/150; verifier 144/180; web 238/1800; host 136/150. Later fast checks did not run.
+  - `python -m pytest tests/unit -q` -> exit 1 during collection; six API/core/notary modules cannot import missing `psycopg`.
+  - `python -m pytest tests/contract/test_audit_vectors.py -q` -> exit 1 during collection; missing `hypothesis`.
+  - `python tools/verify_audit.py --help` -> exit 0; CLI help printed.
+VERIFIED FACTS: frontend build and npm audit results above; live local PostgreSQL health, schema-table count and role/trigger facts above. Docker Desktop/PostgreSQL checks are local integration evidence only, not Linux/runsc acceptance.
+UNVERIFIED / ASSUMED: no browser-to-API session, SSE, or end-to-end journey; no real API or proxy service exists in Compose. No sandbox provisioning, runsc, host isolation, security suite, or gate acceptance was attempted. Frontend direct and transitive packages are in the npm lock; the package/transitive approval CR remains pending.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: frontend uses direct packages React 19.3.1, React DOM 19.3.1, Vite 8.4.0, TypeScript 7.0.2, and React type packages; registry evidence and lock hashes are in `web/DEPENDENCIES.md` / `web/package-lock.json`. No package was installed during this session. Formal transitive-package approval remains pending.
+OPEN RISKS / QUESTIONS FOR HUMANS: approve or reject the pending dependency and runner-budget CRs; full API stack integration requires Python dependency lock approval plus service build/start/health definitions. Linux host acceptance remains outstanding.
+NEXT: M2 service integration after dependency/image decisions; meanwhile continue only independent work that does not rely on unapproved dependencies or change frozen contracts/budgets.
+
+## 2026-11-26 · Manas O8 console workflow implementation
+
+TASK: Build the remaining O8 console paths against the already implemented API, following the exact role and route rules in `contracts/rbac_matrix.yaml` and `docs/06_VERIFICATION.md`.
+STATUS: Partial local implementation. O8 UI paths exist, but no API-backed browser journey was run and O8 is not accepted. No objective or gate is green.
+CHANGED: `web/src/api.ts`, `web/src/ui/App.tsx`, `web/src/ui/AppComponents.tsx`, `web/src/ui/AdminPages.tsx`, `web/src/ui/AuditPage.tsx`, `web/src/ui/ConsoleRoot.tsx`, `web/src/ui/useConsoleActions.ts`, `web/src/ui/useConsoleData.ts`, `web/src/ui/useSession.ts`, `web/src/ui/styles.css`, `web/README.md`. Added role-filtered user/team pages, quota edits, audited kill-switch action, audit filters/export/verify/checkpoint, tamper alert banner, SSE activity, live per-env metric reads, browser routes for E2E paths, and session restoration. Oversized component logic was split into small UI/hooks; current line review found no function longer than 40 source lines.
+COMMANDS RUN (Manas Windows laptop, `work/manas`):
+  - `npm run build` in `web/` -> exit 0; strict TypeScript compile; Vite transformed 24 modules and built the production bundle.
+  - `npm audit --audit-level=low` -> exit 0; `found 0 vulnerabilities`.
+  - `git diff --check` -> exit 0.
+  - Vite dev server -> started and served `/login`; read-only browser GET returned HTTP 200 and `ABHEDYA Security Console`; screenshot showed the login UI; browser dev console had no client errors. API proxy requests for `/api/v1/auth/me` and `/api/v1/healthz` logged `ECONNREFUSED 127.0.0.1:8000` because no API process is running. Server stopped after inspection.
+  - `make check-fast` -> exit 1 at budget reporter: core 180/300; runner 850/800 OVER; API 2000/1100 OVER; sandbox MISSING/450; notary 131/150; verifier 144/180; web/src 518/1800; host 136/150. Lint, mypy, web check-fast step, unit suite and placeholder step were not reached by this target.
+VERIFIED FACTS: strict frontend production build, local npm audit result, local static login route, and no browser-client errors. The Vite console logs confirm the API is not listening on its configured development port. No request was authenticated and no backend response was shown as live data.
+UNVERIFIED / ASSUMED: admin, auditor, team-lead and analyst flows against the real API; session cookie persistence in the actual deployment; SSE replay/tamper alert; environment metrics; create/exec, quota, kill-switch and audit export/verify flows; T-E2E-01..04. All need a configured API; environment/runtime journeys also need runner and images. No security or Linux/runsc acceptance was run.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: none added in this O8 pass; existing React/Vite lock and pending package approval status are recorded in the prior handoff.
+OPEN RISKS / QUESTIONS FOR HUMANS: API build/runtime dependency approval and API/runner/notary/proxy Compose integration remain prerequisites for full-stack checks. Existing code-budget CR and missing `sandbox/` still stop `make check-fast`. Linux host acceptance remains required for O1/O3/O4/O5/O9 and gates.
+NEXT: integrate API and existing services only after their approved build/dependency interfaces are available, then run T-E2E-01..04 on the real local stack and the Linux host tests on the primary Ubuntu VM.
+
+## 2026-11-27 · Local website-first demo direction
+
+TASK: Follow Manas's direction to make the website the local demo surface without depending on a sandbox or Ubuntu VM, while keeping unavailable runtime behavior honest.
+STATUS: Website source builds. This is a local UI implementation slice, not a real API-backed browser demo and not acceptance of any objective. O1-O9 remain 0/9 accepted; host gates remain pending.
+CHANGED: `team/manas/work/PLAN_M1_M3.md`, `web/README.md`, `web/src/api.ts`, `web/src/ui/ConsoleRoot.tsx`, `web/src/ui/AppComponents.tsx`, `web/src/ui/useSession.ts`, new `web/src/ui/WorkloadPage.tsx`. The plan now separates a local website demo from objective acceptance. Sandbox actions are off unless `VITE_SANDBOX_ACTIONS_ENABLED=true`; disabled buttons do not call the API. Overview explicitly reports “Not enabled” in website-only mode. Login checks the real `/healthz` endpoint and disables sign-in while the API/database is unavailable. Analyst/team-lead navigation now includes File analysis and AI red-team pages; those show only real API job history and state why submissions are unavailable, with no generated results or job writes.
+COMMANDS AND RESULTS (Manas Windows host, `work/manas`):
+  - `npm run build` in `web/` with default settings -> exit 0; TypeScript succeeded; Vite transformed 25 modules and built `dist/`.
+  - `$env:VITE_SANDBOX_ACTIONS_ENABLED='true'; npm run build` -> exit 0; enabled-mode bundle also compiled. One parallel default build attempt exited 1 because Vite detected the other build's project lock; rerunning default build sequentially exited 0.
+  - `npm audit --audit-level=low` in `web/` -> exit 0; `found 0 vulnerabilities`.
+  - `python db/init/report_budgets.py` -> exit 1; core 180/300 OK, runner 850/800 OVER, API 2000/1100 OVER, sandbox MISSING/450, notary 131/150 OK, verifier 144/180 OK, web/src 553/1800 OK, host 136/150 OK.
+  - `git diff --check` -> exit 0.
+  - `docker compose ps` -> the only service is PostgreSQL (`sfic-db-1`, healthy); no API, runner, notary, or proxy is running.
+  - `npm run dev` in `web/` -> Vite started at `http://127.0.0.1:5173/` and remains running for local preview (session 50512); GET `/` and `/files` -> HTTP 200; proxied `/api/v1/healthz` -> HTTP 502 because no API is listening on port 8000.
+VERIFIED FACTS: UI action controls are guarded by the default-off Vite flag; the two workload pages display API-returned job rows only; frontend production build and npm audit pass. No new packages were installed.
+UNVERIFIED: authenticated browser behavior, route-level visual review, and any service-backed workload operation. API dependencies remain unavailable in the current Python environment (`psycopg`, `psycopg_pool`, `argon2`); the dependency/transitive approval question remains open. No sandbox action, Docker sandbox, runsc, workload, or acceptance test ran.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: none.
+OPEN RISKS / QUESTIONS FOR HUMANS: the local site cannot authenticate until the API runs. Current Compose remains DB-only. The API/runner/notary/proxy service interface and dependency decisions are still prerequisites to an authenticated website demo. Sandbox controls remain disabled until a real supported runtime is available. O1, O3, O5, O9 and full O8 acceptance remain open.
+NEXT: resolve the already-recorded backend dependency policy, start the API against local PostgreSQL, then exercise real login, admin, audit, activity, and browser pages. Keep sandbox/workload actions disabled until their real workers exist; continue remaining non-sandbox local work without treating the website demo as objective acceptance.
+
+## 2026-11-27 · Initial combined API dependency candidate (superseded)
+
+TASK: Start the local backend phase by resolving the already-pinned API/test requirements into an auditable, hash-pinned candidate, without installing packages while the transitive-package change request remains open.
+STATUS: Candidate lock generated and dry-run validated. API service remains stopped; no endpoint or objective is accepted from this work.
+CHANGED: initial combined candidate `API_REQUIREMENTS_PROPOSAL.in/.lock` was produced during this investigation and then superseded by separate runtime and development candidates. Do not use the old names described in the historical commands below; the current artifacts and counts are in the next handoff entry and `team/manas/work/API_DEPENDENCY_PROPOSAL.md`. No approved dependency record or frozen docs were changed.
+COMMANDS AND RESULTS (Manas Windows host, `work/manas`):
+  - `uv --version` -> exit 0; uv 0.12.9 (9f9286029, 2026-09-01, x86_64-pc-windows-msvc).
+  - `uv pip compile team/manas/work/API_REQUIREMENTS_PROPOSAL.in --python-version 3.11 --universal --generate-hashes --output-file team/manas/work/API_REQUIREMENTS_PROPOSAL.lock` -> exit 0; `Resolved 44 packages`.
+  - Direct-pin comparison -> exit 0; 15 pins compared, no mismatches.
+  - `uv pip install --dry-run --no-cache --require-hashes --system -r team/manas/work/API_REQUIREMENTS_PROPOSAL.lock` -> exit 0; `Resolved 44 packages`; `Would download 44 packages`; `Would install 44 packages`. Dry-run only, no install.
+  - `python -m compileall -q core services tools` -> exit 0; syntax compile only.
+  - `python -c ... find_spec ...` -> FastAPI, Uvicorn, Pydantic, pydantic-settings, PyYAML, cryptography and httpx found; psycopg, psycopg_pool, argon2 and argon2_cffi_bindings missing.
+  - `git diff --check` -> exit 0.
+VERIFIED FACTS: the generated candidate is accepted by uv's hash-required dry-run resolver, all 15 direct pins match their recorded versions, and the backend dependencies remain absent after the dry run. This resolves the dependency graph, not package trust or approval.
+UNVERIFIED: no API process, auth, route, PostgreSQL API query, disposable DB suite, ruff, or mypy run against the proposed environment. Package licenses and all 29 transitives still require review/approval; the candidate has not been installed.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: no package installed. The candidate lists dependencies only.
+OPEN RISKS / QUESTIONS FOR HUMANS: the repository's all-member dependency/transitive change request is still pending. Manas's solo-development instruction does not approve a frozen dependency-policy change. A reviewed/approved lock is required before the real API can start on this Python environment.
+NEXT: complete the required package/security review and record the decision through the existing CR process; only then install in an isolated venv and proceed with the real DB-backed API checks. Continue backend source review without changing frozen contracts or installing packages meanwhile.
+
+## 2026-11-27 · Backend dependency split and local database credential files
+
+TASK: Continue L1 backend enablement without installing unapproved packages; make the generated service-role database credentials usable by a real Linux client container.
+STATUS: Dependency closures are hash-resolved but still proposals. Role-specific password files have been generated and verified against the live local PostgreSQL service. No API process or endpoint is claimed running.
+CHANGED: `db/init/generate_secrets.py` now creates `secrets/abh_api.pgpass`, `secrets/abh_runner.pgpass`, and `secrets/abh_notary.pgpass` from the existing role passwords. New `db/init/with_pgpass.sh` makes a private mode-600 copy in writable temporary storage and `exec`s the requested process with `PGPASSFILE` set. Added `db/init/test_generate_secrets.py`; `make check-fast` now includes it in the pytest invocation. Also added separate runtime/dev candidate locks, corrected `API_DEPENDENCY_PROPOSAL.md`, and updated this handoff and `PLAN_M1_M3.md`. All actual secret files remain ignored and were not committed.
+DEPENDENCY CANDIDATE RESULTS:
+  - `uv pip compile ...API_REQUIREMENTS_RUNTIME.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 27 packages, 510 artifact hashes (10 direct + 17 resolver-added).
+  - `uv pip compile ...API_REQUIREMENTS_DEV.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 44 packages, 867 artifact hashes (15 direct + 29 resolver-added).
+  - `uv pip install --dry-run --no-cache --require-hashes --system -r ...RUNTIME.lock` -> exit 0; would download/install 27; nothing installed.
+  - Same dry-run for `...DEV.lock` -> exit 0; would download/install 44; nothing installed.
+  - Direct pins are unchanged from the candidate inputs. Runtime/dev candidates and their resolver-added packages remain subject to review and formal approval; no license/security review is claimed.
+DATABASE CREDENTIAL EVIDENCE (Windows Docker Desktop, real local Compose PostgreSQL):
+  - `python -m compileall -q db/init/generate_secrets.py` -> exit 0; syntax only.
+  - `python -m pytest db/init/test_generate_secrets.py -q` -> 4 passed; covers valid format, role-specific file content, idempotence, no credential output, and refusal of invalid/mismatched credentials.
+  - `make -n check-fast` -> exit 0; expanded dry-run includes `db/init/test_generate_secrets.py` in the existing unit pytest command. This validates target expansion only, not the whole check-fast target.
+  - `docker run ... /bin/sh -n /with_pgpass.sh` against the pinned PostgreSQL client image -> exit 0.
+  - The first repeat DB probe exited nonzero because its `ROLE` environment option was placed after the image command; psql correctly defaulted to `root` and rejected the connection. The corrected invocation put `--env ROLE=<service-role>` before the image and passed all three roles below.
+  - `make secrets` -> exit 0; existing six base credentials and key pair preserved; three corresponding pgpass files present.
+  - One-off ephemeral postgres-client containers on `sfic_control` invoked `db/init/with_pgpass.sh` with each role's generated password file; the client observed passfile mode `600`, and `current_user` returned `abh_api`, `abh_runner`, and `abh_notary` respectively; all three exited 0. Credential contents were not printed.
+  - The raw Windows-host bind mount reported mode 777 inside Linux. Since PostgreSQL libpq ignores password files accessible by group/world, directly mounting it as `PGPASSFILE` is not viable. The new helper is verified for a real test client. Compose does not yet define an API service or invoke the helper; API startup remains pending.
+  - Existing PostgreSQL health/schema evidence remains: DB healthy, 9 public tables, roles have audit SELECT/INSERT but not UPDATE/DELETE. Compose remains DB-only; no API service is running.
+  - `python db/init/report_budgets.py` -> exit 1: core 180/300 OK; runner 850/800 OVER; API 2000/1100 OVER; sandbox missing/450; notary 131/150 OK; verifier 144/180 OK; web/src 557/1800 OK; host 136/150 OK.
+  - `git diff --check` -> exit 0; focused `python -m compileall -q db/init/generate_secrets.py db/init/test_generate_secrets.py` -> exit 0.
+UNVERIFIED: API imports/startup, health and auth routes, database operations through API, full unit/security suites, runtime package licenses/security, Linux image behavior, and final service entrypoint. No objective or gate is green.
+SOURCE REVIEW: current `services/api/routes/auth.py` executes `_attempt_login` inside the connection/transaction context, exits that context, then raises any returned `ApiError`; this appears to prevent the earlier denied-login audit rollback. This is source inspection only; the API's denied-login path was not executed in this turn.
+OPEN DEPENDENCIES: dependency/transitive approval; API image/base-image decision; formal API budget change (reported 2000/1100); wire the tested helper into the eventual API service entrypoint.
+NEXT: finish reviewable dependency metadata and backend source review in parallel with no installation; once formal policy approvals are recorded, install only the approved lock in an isolated venv, create the real API service/container wiring, invoke the tested helper from its entrypoint, and execute health/auth/database/API test journeys against the live local PostgreSQL.
+PUSH / REVIEW STATE: committed as `0587e00` (credential helper, generator tests and dependency candidates) and `0e45568` (include the test in `make check-fast`), pushed to `origin/work/manas`. Draft PR #27 was updated to title `Draft: local website and backend enablement`; it remains open and draft. `gh pr checks 27` reported `no checks reported on the 'work/manas' branch`.
+LATEST WEBSITE HEALTH OBSERVATION: from the still-open Vite preview, `Invoke-WebRequest http://127.0.0.1:5173/api/v1/healthz` received HTTP 502; `Test-NetConnection 127.0.0.1 -Port 8000` reported `TcpTestSucceeded=False`. Thus the UI message is caused by no API listener, while the Compose PostgreSQL is healthy. The final head also includes this handoff update.
+
+## 2026-11-27 · Local API runtime and database-backed verification
+
+TASK: Manas directed us to proceed without waiting for team votes and to run the API locally for the website demo. This entry records the local implementation and verification. It does not record a formal change-request approval or make any O1–O9 objective/gate green.
+STATUS: Local FastAPI service has been run against the real Docker Compose PostgreSQL. API health, route schema, the database-backed API suite, focused static checks and unit tests passed. The API is being left running for the existing Vite website. Sandbox/runsc remains out of scope for the local website demo.
+DEPENDENCY DECISION: To honor the user's explicit local-only direction, the candidate hash locks were installed into an isolated disposable venv outside the repository at `T:\CyberVaultReview\abh-api-venv-0ecf1f4`. Nothing was installed globally or added to official `evidence/VERSIONS.lock`; no formal CR vote was fabricated. Candidate files remain `team/manas/work/API_REQUIREMENTS_RUNTIME.in/.lock` and `API_REQUIREMENTS_DEV.in/.lock` pending repository policy reconciliation.
+DATABASE CONNECTIVITY: Compose's checked-in DB is internal-only and not reachable from a host process. An untracked override outside the repository, `T:\CyberVaultReview\api-db-loopback-override.yaml`, exposes the local database on `127.0.0.1:15432` and adds a temporary development bridge. The database is still a real Postgres container with the existing named data volume. Generated passfiles and the local admin password are ignored under `secrets/`; never print or commit their contents. This temporary host access configuration is for this machine only and is not production Compose architecture.
+LOCAL ADMIN: Added guarded `db/init/bootstrap_local_admin.py` and Make target `local-admin`. It creates `admin@abhedya.local` exactly once using the real owner role, Argon2id, and a same-transaction `user.create` audit record. It refuses to bootstrap over a populated user table or downgrade/reset an existing account. The random password is stored in ignored `secrets/local_admin.txt`, not printed. `make local-admin` returned `already-present` on rerun, confirming idempotency.
+CODE FIX: A live DB-backed environment quota request exposed a real lock cycle: `create_env_with_quota` held a team row lock while a second connection's denial-event insert blocked on its FK. The quota function now returns the error and the route records the denial after the quota transaction unwinds. The live suite passed after this fix. The HTTPS TestClient base URL is used in the suite so Secure cookies are exercised correctly. The Windows test mode check recognizes Windows' read-only `0444` representation while POSIX retains exact `0400`.
+COMMANDS AND RESULTS:
+  - Isolated runtime+dev lock installation completed in the external venv; no global or repo environment install.
+  - `tests/unit/api/live_pg_suite.py -v -q` against a fresh disposable Compose project -> `1 passed in 1.38s`; the project used database `abhedya_test` and is isolated from the demo database.
+  - `$py -m pytest tests/unit -q` -> `79 passed, 1 warning in 1.34s` (Starlette/httpx TestClient deprecation only).
+  - `$py -m compileall -q db/init/bootstrap_local_admin.py db/init/generate_secrets.py services/api tests/unit/api` -> exit 0.
+  - `$py -m ruff check db/init/bootstrap_local_admin.py db/init/generate_secrets.py services/api tests/unit/api` -> exit 0, `All checks passed!`.
+  - `$py -m mypy --strict --disable-error-code=import-untyped core/abh_core services/api tests/unit/api db/init/bootstrap_local_admin.py db/init/test_generate_secrets.py` -> exit 0, 32 source files.
+  - `make local-admin PYTHON=<isolated-venv-python> LOCAL_DB_PORT=15432` -> exit 0; existing admin detected without resetting the credential.
+  - Before this final restart, `GET /api/v1/healthz` -> `{"status":"ok","db":true}`; `/openapi.json` -> HTTP 200 with 27 paths; unauthenticated `/api/v1/auth/me` -> expected HTTP 401.
+  - Candidate OpenAPI artifact generated at `contracts/openapi.yaml` (41,991 bytes); compare drift before treating it as authoritative.
+LIMITS: Browser sign-in with the generated credential has not been performed. Live API unit suite is not equivalent to complete contract/E2E coverage. The full `make check-fast` remains blocked by the official budget report (runner 850/800, API 2013/1100, sandbox directory missing). Linux/runsc preflight and all sandbox acceptance remain unrun. Do not represent this local website/API slice as objective completion.
