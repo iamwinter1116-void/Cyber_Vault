@@ -33,8 +33,8 @@ The recovery handoff records the active database state, witness state, demo URL,
 ## 4. Hardware and workloads
 
 The RTX 5050 is not used by the mandatory objectives. Do not pass the GPU or any host device into the sandbox.
-The required AI workload targets the local offline stub. Real-model/GPU work is stretch S8 after G4 only, with an
-explicitly tested network policy and no change to mandatory isolation claims.
+The original AI target is pending a four-person change request under `docs/16_BUILD_NOW_HOST_LATER.md`.
+Do not implement a model stub or add GPU access without that decision and an explicitly tested network policy.
 
 ## 5. Evidence and ownership
 

@@ -3,6 +3,8 @@
 **Your role:** B, the isolation engine and workload runtime. You own the sandbox launcher, host setup, networks,
 resource limits and job execution. Manas owns the primary demo host; your laptop is the cold backup host.
 **Your code is the only code that holds the Docker socket.** Small and boring is the goal.
+Current order: read `docs/16_BUILD_NOW_HOST_LATER.md`. Continue real runner and template implementation locally;
+record B0 and all sandbox checks as pending until a real Linux host is available. No simulation proves isolation.
 
 ## Your folder
 | File | What it is | When |
@@ -31,8 +33,8 @@ on Manas's primary Ubuntu VM over SSH. If a backup-host drill is needed, Manas m
 stack is stopped and explicitly hand over the active host. Never run a second stack concurrently.
 
 ## Work sequence
-1. Confirm `work/parth`, your exact path boundary, Manas's primary VM access and an announced test window.
-2. Run B0 host preflight on the primary VM; report exact host/runtime versions and spike evidence.
+1. Confirm `work/parth` and your exact path boundary. Review and fix the pushed B0 scripts.
+2. Prepare real runner code and locally testable units while B0 host preflight awaits a Linux test window.
 3. Deliver the single runner launch path, network isolation, resource limits, cleanup, collectors and three workloads in dependency order.
 4. Supply Bhavya with probe names, command interfaces and expected safe outputs before security tests are finalized.
 5. Fix only failures tied to test IDs; report code/evidence to Manas for gate calls.
@@ -45,7 +47,7 @@ means: `ai_scan` keeps only the `quick` probe set, and if tripwire 2 fires, B6 k
 1. Every container you launch goes through the one `launch()` function with the whole profile of
    `docs/04_CONTRACTS.md` section 8. After every task, run `docker inspect` on a live sandbox and read it yourself.
 2. If `runsc` is missing or broken, the platform says so on screen. It never quietly uses `runc`.
-3. One stack on the VM at a time, and you start it. A second runner on the same Docker daemon deletes the first
+3. One stack on the VM at a time, and Manas starts it. A second runner on the same Docker daemon deletes the first
    one's sandboxes (risk R-23).
 4. Nothing you learn about sandboxes in WSL or Docker Desktop counts. Only the VM counts.
 5. Snapshot the VM after B0 passes. If an install goes wrong later, roll back instead of debugging the host.

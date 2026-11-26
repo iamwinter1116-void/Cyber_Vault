@@ -11,6 +11,6 @@ Copy this file to the repository root locally as `CLAUDE.local.md`; it is git-ig
 - Before any sandbox check, confirm `uname -a`, `/proc/version`, Docker and `runsc` versions. WSL and Docker Desktop
   results do not count as isolation evidence.
 - Use gVisor `systrap`; do not enable privileged mode, KVM assumptions, GPU passthrough, host mounts, or extra capabilities.
-- The GPU is not required by the mandatory app/file/AI workloads; the AI target is the offline stub.
+- The GPU is not required by the current local work; the original AI target is pending a four-person change request.
 - Do not stop, restart or reset the shared stack. Manas operates the primary VM and announces test windows.
 - Journal: `team/parth/work/JOURNAL.md`. Handoffs: `team/parth/work/HANDOFFS.md`.

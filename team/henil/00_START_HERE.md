@@ -2,6 +2,8 @@
 
 **Your role:** A: login, sessions, authorization, API endpoints, team/host quota admission, audit append and notary.
 You own backend service files; Manas owns Compose/build integration and the primary host.
+Current order: read `docs/16_BUILD_NOW_HOST_LATER.md`. Start real A1 core/audit behavior locally against real
+PostgreSQL, then implement API routes with real behavior. A0's former 501 route stubs are suspended.
 
 ## Your folder
 | File | What it is | When |
@@ -24,8 +26,8 @@ Shared files you must read once (about 60 minutes, with the other three): `docs/
    Both must be refused. Ask it to append a line to `team/henil/work/JOURNAL.md`. That must work.
 
 ## Work sequence
-1. Confirm `work/henil`, exact backend path ownership, and Manas's M1 scaffold/DB setup.
-2. Deliver A0 schemas/routes/OpenAPI, then A1 shared core audit/database interfaces before Parth's runner integration.
+1. Confirm `work/henil` and exact backend path ownership; provide Manas actual service build/start/readiness commands.
+2. Deliver A1 shared core audit/database interfaces first, then real A0 API shapes/routes as behavior is implemented.
 3. Implement authentication, RBAC, endpoints, quota admission, event stream, audit append and notary in prompt order.
 4. Run your unit tests locally; coordinate every full-stack or runner-dependent test with Manas on the primary VM.
 5. Fix failures reported by Bhavya's contract/security tests without editing those tests.

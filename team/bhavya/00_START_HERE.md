@@ -3,6 +3,8 @@
 **Your role:** C: the web console, independent audit verifier, contract/security/e2e tests, scanners, and evidence.
 You are the team's independent test owner. Manas is the maintainer and integration/release owner; you do not own
 the Makefile, Compose file, CI, or merge queue.
+Current order: read `docs/16_BUILD_NOW_HOST_LATER.md`. Start vector/matrix tests and the independent verifier now;
+record real-stack tests as pending until a Linux host exists. Do not simulate API or sandbox success.
 
 ## Your folder
 | File | What it is | When |
@@ -20,13 +22,13 @@ Shared files you must read once (about 60 minutes, with the other three): `docs/
 
 ## One-time agent setup
 1. Inside WSL: clone into `~/abhedya`, then `cp team/bhavya/CLAUDE.local.md ./CLAUDE.local.md`.
-2. For full-stack tests, SSH into Manas's primary Ubuntu VM as `bhavya` when Manas opens a test window; do not copy
-   or use a local runner stack.
+2. For later full-stack tests, SSH into Manas's primary Linux host as `bhavya` when Manas opens a test window;
+   no host-dependent test is claimed now.
 3. Guard-rail test: ask the agent to add a comment to `contracts/schema.sql` and to
    `team/bhavya/02_PROMPTS.md`. Both must be refused. Appending to `team/bhavya/work/JOURNAL.md` must work.
 
 ## Work sequence
-1. Confirm `work/bhavya`, your exact path boundary, Manas's M1 scaffold and a primary-VM test window.
+1. Confirm `work/bhavya` and your exact path boundary. Start independent contract work without a VM or scaffold.
 2. Complete C0 contract tests and C1 verifier; send vector results to Henil and Manas.
 3. Complete C2 contract/security suites; report failing test IDs to the owning implementation engineer.
 4. Build C3–C6 UI pages after the corresponding API shapes are available; do not edit API or runner code.
