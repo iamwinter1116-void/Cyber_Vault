@@ -320,3 +320,15 @@ ROLE A DECISION:
   - CR (`services/runner` code budget 800 -> 1000 for B6 file analysis): **Yes (A)** — no impact on API/notary contracts or DB interface.
 NEXT: Continue 5-min checks on `origin/integration` (`task-782`).
 
+## 2026-11-26 · `services/api` budget CR proposal (`2000/1100`)
+
+TASK: Respond to Manas's request for `services/api` budget reduction plan or four-person CR
+STATUS: synced with `origin/integration` (`59e49dc`)
+CHANGED:
+  - `team/henil/work/CR_PROPOSAL_api_budget.md` (per-file `report_budgets.py` breakdown totaling 2000 code lines and justification)
+  - `team/henil/work/CR_ENTRIES_FOR_09.md` (ready-to-paste CR raising `services/api` budget 1100 -> 2100; `Agreed by: A yes`)
+VERIFIED FACTS:
+  - Per-file `report_budgets.py` `python_lines()` sum across 18 files = 2000 code lines; max single file = 214 lines (`routes/monitor.py`).
+  - O9 `AiScanRequest` (`Literal["stub-vulnerable", "stub-guarded"]` in `services/api/schemas.py:154`) remains untouched pending the four-person O9 CR.
+NEXT: Continue 5-min checks on `origin/integration` (`task-799`).
+
