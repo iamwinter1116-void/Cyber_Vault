@@ -19,6 +19,9 @@ The connected GitHub account has write permission but not admin permission. The 
 `7c81ec7`: `main`, `integration`, and `work/{manas,parth,henil,bhavya}`. The GitHub branch-protection API returned 404
 for both protected branches, and a read confirmed no rule is configured. The repository owner/admin must configure the
 remote rules before the Manas-only merge rule can be enforced; until then this agreement is procedural.
+The repository is private. The collaborator list currently contains three non-owner accounts; the owner must reconcile
+those accounts against the four teammate identities and invite the missing contributor before that person can clone or
+push their `work/<name>` branch.
 
 ## 2. Team, role, and primary responsibility
 
