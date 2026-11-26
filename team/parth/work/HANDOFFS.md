@@ -315,3 +315,70 @@ STANDING OPEN ITEMS:
   5. Blocked: B7 ai_scan until the four-person O9 CR.
 NEXT: B5 exec jobs (~60 code lines, fits a code-line rule); B6 local only after the counting rule is fixed.
 ```
+
+## 2026-11-26 · Sync f3328bc, check-fast safety, B5 exec jobs (local) · this commit
+
+```
+TASK: Parth approved: sync, B5 exec jobs, handoff/PR, messages. Probes and images held (CR draft only).
+STATUS: partial. B5 code + pure tests done; DB cases written, not run; no Docker call has run.
+SYNC: `git merge --no-edit origin/integration` -> exit 0, fast-forward to f3328bc (PR #2 had merged 2075dbf;
+  includes Manas PR #11 Makefile). No file in host/, services/runner/, sandbox/, tests/unit/runner/ changed.
+  tests/security/test_workloads.py checked out intact (git diff vs HEAD empty).
+CHECK-FAST SAFETY (found after PR #11): `make check-fast` runs `pytest tests/unit`; the old
+  tests/unit/runner/test_reconcile_pg.py raised at import without DSNs and would have failed collection for
+  everyone. Renamed to tests/unit/runner/live_pg_suite.py (not matched by test_*.py), same guard style as
+  Henil's live suite: requires ABH_TEST_ALLOW_DISPOSABLE_DB=1, both DSNs, same database on both, name
+  containing "test" or "disposable", never "abhedya"; refuses live env rows; fails loudly, never skips.
+MYPY ON WINDOWS (not run here; facts checked): docker 7.2.0 has no docker/py.typed (GitHub tag listing),
+  so `import docker` now carries `# type: ignore[import-untyped]` (collect, objects, main); os.stat().st_blocks
+  is POSIX-only in typeshed, read via getattr in collect.storage_used. Effect only on type checking.
+B5 CHANGED:
+  services/runner/exec_policy.py (new, pure): argv ["timeout","-s","KILL","60","sh","-c",command] (the command
+    is one argument inside the sandbox, never a host string); input/env/template checks; output capped at
+    65536 bytes of valid UTF-8 with U+0000 replaced (jsonb rejects it); status rule (137 at >= 60 s = timeout,
+    137 earlier = done, no exit code = error).
+  services/runner/jobs.py (new): claim only queued exec jobs (file_analysis/ai_scan stay queued), oldest
+    first, SKIP LOCKED; exec_create(user 1000:1000) + exec_start(stream=True), output beyond the cap read and
+    discarded (bounded memory), host-side bound 65 s, exit code from exec_inspect; finish = job row + one
+    job.finished audit (target_type job, outcome success only for done) + one job.finished activity event in
+    one transaction; start-up recovery ends exec jobs left running as error, each audited.
+  services/runner/main.py: 4 exec worker threads, each with docker.from_env(timeout=75).api (default client
+    timeout is 60 s = docker/constants.py DEFAULT_TIMEOUT_SECONDS, same as the deadline); pool max_size 8.
+  tests/unit/runner/test_exec_policy.py (new, 6 tests, includes a hostile quotes/;/`/$()/newline command).
+  tests/unit/runner/live_pg_suite.py: + JobsSQL (4 tests) -> 14 tests in 3 classes.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib only):
+  python -m unittest discover -s tests/unit/runner -t . -p "test_*.py" -> "Ran 50 tests ... OK", exit 0
+  python -m compileall -q services/runner tests/unit/runner -> exit 0
+  python db/init/require.py placeholders -> exit 1, only services/api/schemas.py:154 (Henil's); no runner/host hit
+  NOT RUN: ruff, mypy, pytest (not installed; lock incomplete), live_pg_suite (needs DSNs + deps).
+BUDGET: OVER - 857 code / 1191 physical lines of 800 (journal line written; my B5 estimate was wrong).
+  B6 cannot fit without a reduction pass or a four-person budget decision.
+PENDING (Linux host): hostile command run inside a sandbox, `sleep 70` -> timeout, 200000-byte output ->
+  truncated, exec latency under a neighbour's fork bomb (T-RES-02), all Docker exec behaviour under runsc.
+FOR MANAS (runner Compose block facts, from docs/04 section 9 and the code; no Dockerfile yet because the
+  dependency lock and base-image decision are open):
+  command `python -m services.runner.main` with the repository root as working directory (it reads
+  sandbox/templates relative to the code); network control only; no published port; mounts Docker socket,
+  quarantine read-only, volume directory; DB role abh_runner via ABH_DB_DSN; reads ABH_SANDBOX_RUNTIME,
+  ABH_ALLOW_DEGRADED, ABH_VOLUME_DIR, ABH_METRIC_INTERVAL_SEC (via core Settings). No HTTP health endpoint
+  exists or is defined by the contract. Exactly one runner per stack (R-23; orphan-job recovery assumes it).
+  OPEN: (1) for storage V1 the daemon opens the loop image by its path, so ABH_VOLUME_DIR must be the same
+  path inside the runner container and on the host (bind mount at the identical path) - my reading of
+  docs/08 section 4, unverified; (2) the socket's group/uid for the runner process; (3) the finale date
+  (27 Nov or 2 Dec) decides whether the docs/02 tripwire cuts already apply; (4) budget: runner 857/800;
+  (5) CR draft for sandbox base images and packages: team/parth/work/CR_DRAFT_sandbox_images.md.
+  PG command: ABH_TEST_ALLOW_DISPOSABLE_DB=1 ABH_TEST_OWNER_DSN=... ABH_TEST_RUNNER_DSN=...
+    python -m unittest -v tests.unit.runner.live_pg_suite   (14 tests)
+FOR BHAVYA: (1) probe correction (my omission): probe_env also returns "mounts": [mount points] and
+  "cap_eff": <CapEff hex from /proc/self/status>; disk_fill <path> joins the list (B2 prompt); additive, her
+  tests are unaffected. (2) Still open from Manas's list on integration f3328bc: VERSIONS.lock lacks docker,
+  psycopg-binary, pydantic-settings and says pyyaml 6.0.3 (runner needs 6.0.4); evidence/bug-journal.md:124
+  blank line at EOF; T-ISO-01/04/05/06 differences not yet documented through a CR. (3) Observed against
+  docs/06: T-MON-02 checks >= 3 REST samples in 15 s (docs: >= 6 stream events in 30 s); T-MON-04 does not
+  check 10 events in order; T-WL-02 lacks the detonation case and the mode-0400 check; the antivirus test
+  string is typed in test_workloads.py with no recorded official source; exec_in_env waits 65 s, close to the
+  60 s job deadline. These are her files; reported, not edited.
+STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule unproven on Linux; every
+  Docker call unverified; B0 never on Linux; live_pg_suite unrun; B7 blocked by the O9 CR; budget over.
+NEXT: wait for the CR/base-image decision and the lock entries; then B2 probes; Linux test window via Manas.
+```
