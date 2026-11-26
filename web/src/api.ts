@@ -2,13 +2,19 @@ export type User = { id: string; email: string; role: string; team_id: string | 
 export type Env = {
   id: string; name: string; template: string; size: string; desired_state: string;
   observed_state: string; isolation_tier: string; cpu_millis: number; mem_mb: number;
-  storage_mb: number; expires_at: string;
+  storage_mb: number; pids_limit: number; expires_at: string;
 };
+export type MetricSample = { ts: string; cpu_pct: number; mem_mb: number; storage_mb: number; pids: number; net_rx_bytes: number; net_tx_bytes: number };
 export type Job = { id: string; kind: string; env_id: string; status: string; input: Record<string, unknown>; result: Record<string, unknown>; created_at: string };
 export type Event = { id: number; ts: string; severity: string; kind: string; message: string; env_id: string | null };
+export type Team = { id: string; name: string; quota_envs: number; quota_cpu_millis: number; quota_mem_mb: number; quota_storage_mb: number; usage: { envs: number; cpu_millis: number; mem_mb: number; storage_mb: number } };
+export type AuditRecord = { seq: number; ts: string; actor_id: string; actor_role: string; action: string; target_type: string; target_id: string; outcome: string; detail: Record<string, unknown>; hash: string };
+export type Checkpoint = { tree_size: number; root_hash: string; head_hash: string; ts: string; signature: string; log_id: string };
+export type VerifyResult = { ok: boolean; verdict: string; at: number | null; records: number; checkpoints: number; unanchored_tail: number; checked_at: string };
 export type Page<T> = { items: T[]; next_cursor: string | null };
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
+export const sandboxActionsEnabled = import.meta.env.VITE_SANDBOX_ACTIONS_ENABLED === "true";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -42,7 +48,28 @@ export const api = {
   deleteEnv: (csrf: string, id: string) => request<Env>(`/envs/${id}`, { method: "DELETE", headers: { "X-CSRF-Token": csrf } }),
   jobs: () => request<Page<Job>>("/jobs?limit=100"),
   exec: (csrf: string, envId: string, command: string) => request<Job>(`/envs/${envId}/exec`, { method: "POST", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify({ command, container: "toolbox" }) }),
+  metrics: (envId: string) => request<{ items: MetricSample[] }>(`/envs/${envId}/metrics?minutes=1`),
   events: () => request<Page<Event>>("/events?limit=50"),
   overview: () => request<Record<string, unknown>>("/admin/overview"),
+  users: () => request<Page<User>>("/users?limit=200"),
+  teams: () => request<Page<Team>>("/teams?limit=200"),
+  createUser: (csrf: string, body: { email: string; password: string; role: string; team_id: string | null }) => request<User>("/users", { method: "POST", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify(body) }),
+  updateUser: (csrf: string, id: string, body: { disabled?: boolean }) => request<User>(`/users/${id}`, { method: "PATCH", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify(body) }),
+  createTeam: (csrf: string, body: { name: string }) => request<Team>("/teams", { method: "POST", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify(body) }),
+  updateTeam: (csrf: string, id: string, body: { quota_envs: number; quota_cpu_millis: number; quota_mem_mb: number; quota_storage_mb: number }) => request<Team>(`/teams/${id}`, { method: "PATCH", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify(body) }),
+  killSwitch: (csrf: string) => request<{ affected: number }>("/admin/kill-switch", { method: "POST", headers: { "X-CSRF-Token": csrf }, body: JSON.stringify({ team_id: null }) }),
+  audit: (filters: { action?: string; outcome?: string }) => {
+    const query = new URLSearchParams({ limit: "100" });
+    if (filters.action) query.set("action", filters.action);
+    if (filters.outcome) query.set("outcome", filters.outcome);
+    return request<Page<AuditRecord>>(`/audit?${query.toString()}`);
+  },
+  checkpoints: () => request<{ items: Checkpoint[] }>("/audit/checkpoints"),
+  verifyAudit: (csrf: string) => request<VerifyResult>("/audit/verify", { method: "POST", headers: { "X-CSRF-Token": csrf } }),
+  exportAudit: async (kind: "records" | "checkpoints") => {
+    const response = await fetch(`${BASE}/audit/export?kind=${kind}`, { credentials: "include", headers: { Accept: "application/x-ndjson" } });
+    if (!response.ok) throw new ApiError(`Audit export failed (${response.status})`, response.status);
+    return response.blob();
+  },
   activityStream: () => new EventSource(`${BASE}/stream`, { withCredentials: true }),
 };

@@ -12,6 +12,28 @@ Authority: `docs/04_CONTRACTS.md` sections 9 and 11, `docs/16_BUILD_NOW_HOST_LAT
 6. Work on `work/manas`, open focused PRs to `integration`, and merge only evidence-supported slices. Never promote to `main` before its gates pass.
 7. Do not wait for another person to implement a task. For blocked formal decisions, continue independent work and mark the dependency plainly.
 
+## Updated demo direction — local website first
+
+On 27 November 2026, Manas directed that the immediate demo be a locally served website, without requiring a sandbox or Ubuntu VM. This changes the order of work and the demo scope only; it does not change the frozen definitions of O1–O9 or permit simulated success. Continue building and validating website/control-plane features that work against real local services (currently PostgreSQL). Do not make the local demo depend on `runsc`, Docker sandbox creation, or the demo VM.
+
+For the local website demo:
+
+1. Bring up the real local database and API, then serve the console on loopback. Keep real login, authorization, user/team management, audit queries, verification, and activity behavior connected to the actual API and database.
+2. Show only data returned by the API. If an API/service is unavailable, display an explicit unavailable/error state. Do not seed fake dashboard data, simulate an environment, or label a queued job as completed.
+3. Keep environment creation/execution, file detonation, and AI red-team actions unavailable until their real workers and approved workload definitions exist. The website may explain their unavailable state; it must not present fabricated results.
+4. Treat this as a local product demonstration, not acceptance of the nine objectives. The objective score remains 0/9 until the exact demo-host tests and evidence in `docs/05_OBJECTIVES.md` and `docs/06_VERIFICATION.md` pass. In particular, O1, O3, O5, and O9 require real isolation/workload behavior and cannot be marked complete by a website-only demo.
+
+### Local website implementation sequence
+
+| Slice | Work | Exit evidence |
+| --- | --- | --- |
+| L1 | Resolve recorded backend runtime dependencies without bypassing the dependency/change-control rules; run the existing API against the live local PostgreSQL service | API health reports the actual DB result; unauthenticated and authenticated routes return the contract response shapes |
+| L2 | Serve the console against that API; exercise login/session refresh, roles, users/teams/quotas, audit filters/export/verify, and live activity where the API supports it | Browser journeys use real API responses and database state; no browser console errors; each action's resulting API/database state is evidenced |
+| L3 | Add clear unavailable states for workload actions that lack a real worker, without generating jobs that remain queued indefinitely | Browser evidence shows the exact unavailable reason and no DB mutation occurs when the unavailable control is used |
+| L4 | Run the available local contract/unit/security checks and record every blocked test with its concrete prerequisite | Commands and outputs are recorded; local demo status is reported separately from O1–O9 and G0–G4 |
+
+L1 currently has a dependency-control prerequisite: the installed Python environment lacks `psycopg`, `psycopg_pool`, and `argon2`, and the package/transitive approval question is still open. Do not install packages or silently switch dependency policy to make the demo start.
+
 ## Whole-project solo sequence
 
 | Phase | Scope | Exit condition |
@@ -44,7 +66,7 @@ Additional local database evidence: after PR #14 recorded the runner's direct pa
 
 Use the actual implementation handoffs and approved image/build definitions, runtime command, health response, and dependency pins for `api`, `runner`, `notary`, and `proxy`. As sole implementer, reconcile any stale or incomplete interface directly in its owning code and this Compose work, preserving contracts. Verify only the proxy publishes a host port and only runner mounts the Docker socket. Run a clean stack and service-level health checks on Docker Desktop as local integration evidence. Leave Linux isolation acceptance open.
 
-Independent console slice started 26 November 2026: `web/` now has a real React/Vite UI for implemented API routes, cookie-backed session restoration, authenticated activity SSE, and live API overview fields. `npm run build` and `npm audit --audit-level=low` pass locally. This does not complete phase 2: Compose still contains only `db`, no browser-to-API journey was run, and Python/image dependency decisions remain unresolved. See the matching handoff.
+Independent console slice expanded 26 November 2026 to cover O8 UI workflows: user/team administration, quotas, kill switch, audit filter/export/verify/checkpoint, tamper banner, activity SSE, and environment metric reads, all through implemented API routes. `npm run build` and `npm audit --audit-level=low` pass locally; `/login` returned HTTP 200. The API proxy returned connection refused because no API process is running, so no authenticated browser journey ran. This does not complete phase 2: Compose still contains only `db`; Python/image dependency decisions and the service interfaces remain unresolved. See the matching handoffs.
 
 ## Phase 3 — CI and fast checks
 

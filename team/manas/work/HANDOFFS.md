@@ -340,3 +340,40 @@ DEGRADED PATHS: none.
 NEW DEPENDENCIES: frontend uses direct packages React 19.3.1, React DOM 19.3.1, Vite 8.4.0, TypeScript 7.0.2, and React type packages; registry evidence and lock hashes are in `web/DEPENDENCIES.md` / `web/package-lock.json`. No package was installed during this session. Formal transitive-package approval remains pending.
 OPEN RISKS / QUESTIONS FOR HUMANS: approve or reject the pending dependency and runner-budget CRs; full API stack integration requires Python dependency lock approval plus service build/start/health definitions. Linux host acceptance remains outstanding.
 NEXT: M2 service integration after dependency/image decisions; meanwhile continue only independent work that does not rely on unapproved dependencies or change frozen contracts/budgets.
+
+## 2026-11-26 · Manas O8 console workflow implementation
+
+TASK: Build the remaining O8 console paths against the already implemented API, following the exact role and route rules in `contracts/rbac_matrix.yaml` and `docs/06_VERIFICATION.md`.
+STATUS: Partial local implementation. O8 UI paths exist, but no API-backed browser journey was run and O8 is not accepted. No objective or gate is green.
+CHANGED: `web/src/api.ts`, `web/src/ui/App.tsx`, `web/src/ui/AppComponents.tsx`, `web/src/ui/AdminPages.tsx`, `web/src/ui/AuditPage.tsx`, `web/src/ui/ConsoleRoot.tsx`, `web/src/ui/useConsoleActions.ts`, `web/src/ui/useConsoleData.ts`, `web/src/ui/useSession.ts`, `web/src/ui/styles.css`, `web/README.md`. Added role-filtered user/team pages, quota edits, audited kill-switch action, audit filters/export/verify/checkpoint, tamper alert banner, SSE activity, live per-env metric reads, browser routes for E2E paths, and session restoration. Oversized component logic was split into small UI/hooks; current line review found no function longer than 40 source lines.
+COMMANDS RUN (Manas Windows laptop, `work/manas`):
+  - `npm run build` in `web/` -> exit 0; strict TypeScript compile; Vite transformed 24 modules and built the production bundle.
+  - `npm audit --audit-level=low` -> exit 0; `found 0 vulnerabilities`.
+  - `git diff --check` -> exit 0.
+  - Vite dev server -> started and served `/login`; read-only browser GET returned HTTP 200 and `ABHEDYA Security Console`; screenshot showed the login UI; browser dev console had no client errors. API proxy requests for `/api/v1/auth/me` and `/api/v1/healthz` logged `ECONNREFUSED 127.0.0.1:8000` because no API process is running. Server stopped after inspection.
+  - `make check-fast` -> exit 1 at budget reporter: core 180/300; runner 850/800 OVER; API 2000/1100 OVER; sandbox MISSING/450; notary 131/150; verifier 144/180; web/src 518/1800; host 136/150. Lint, mypy, web check-fast step, unit suite and placeholder step were not reached by this target.
+VERIFIED FACTS: strict frontend production build, local npm audit result, local static login route, and no browser-client errors. The Vite console logs confirm the API is not listening on its configured development port. No request was authenticated and no backend response was shown as live data.
+UNVERIFIED / ASSUMED: admin, auditor, team-lead and analyst flows against the real API; session cookie persistence in the actual deployment; SSE replay/tamper alert; environment metrics; create/exec, quota, kill-switch and audit export/verify flows; T-E2E-01..04. All need a configured API; environment/runtime journeys also need runner and images. No security or Linux/runsc acceptance was run.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: none added in this O8 pass; existing React/Vite lock and pending package approval status are recorded in the prior handoff.
+OPEN RISKS / QUESTIONS FOR HUMANS: API build/runtime dependency approval and API/runner/notary/proxy Compose integration remain prerequisites for full-stack checks. Existing code-budget CR and missing `sandbox/` still stop `make check-fast`. Linux host acceptance remains required for O1/O3/O4/O5/O9 and gates.
+NEXT: integrate API and existing services only after their approved build/dependency interfaces are available, then run T-E2E-01..04 on the real local stack and the Linux host tests on the primary Ubuntu VM.
+
+## 2026-11-27 · Local website-first demo direction
+
+TASK: Follow Manas's direction to make the website the local demo surface without depending on a sandbox or Ubuntu VM, while keeping unavailable runtime behavior honest.
+STATUS: Website source builds. This is a local UI implementation slice, not a real API-backed browser demo and not acceptance of any objective. O1-O9 remain 0/9 accepted; host gates remain pending.
+CHANGED: `team/manas/work/PLAN_M1_M3.md`, `web/README.md`, `web/src/api.ts`, `web/src/ui/ConsoleRoot.tsx`, `web/src/ui/AppComponents.tsx`, `web/src/ui/useSession.ts`, new `web/src/ui/WorkloadPage.tsx`. The plan now separates a local website demo from objective acceptance. Sandbox actions are off unless `VITE_SANDBOX_ACTIONS_ENABLED=true`; disabled buttons do not call the API. Overview explicitly reports “Not enabled” in website-only mode. Login checks the real `/healthz` endpoint and disables sign-in while the API/database is unavailable. Analyst/team-lead navigation now includes File analysis and AI red-team pages; those show only real API job history and state why submissions are unavailable, with no generated results or job writes.
+COMMANDS AND RESULTS (Manas Windows host, `work/manas`):
+  - `npm run build` in `web/` with default settings -> exit 0; TypeScript succeeded; Vite transformed 25 modules and built `dist/`.
+  - `$env:VITE_SANDBOX_ACTIONS_ENABLED='true'; npm run build` -> exit 0; enabled-mode bundle also compiled. One parallel default build attempt exited 1 because Vite detected the other build's project lock; rerunning default build sequentially exited 0.
+  - `npm audit --audit-level=low` in `web/` -> exit 0; `found 0 vulnerabilities`.
+  - `python db/init/report_budgets.py` -> exit 1; core 180/300 OK, runner 850/800 OVER, API 2000/1100 OVER, sandbox MISSING/450, notary 131/150 OK, verifier 144/180 OK, web/src 553/1800 OK, host 136/150 OK.
+  - `git diff --check` -> exit 0.
+  - `docker compose ps` -> the only service is PostgreSQL (`sfic-db-1`, healthy); no API, runner, notary, or proxy is running.
+VERIFIED FACTS: UI action controls are guarded by the default-off Vite flag; the two workload pages display API-returned job rows only; frontend production build and npm audit pass. No new packages were installed.
+UNVERIFIED: authenticated browser behavior, route-level visual review, and any service-backed workload operation. API dependencies remain unavailable in the current Python environment (`psycopg`, `psycopg_pool`, `argon2`); the dependency/transitive approval question remains open. No sandbox action, Docker sandbox, runsc, workload, or acceptance test ran.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: none.
+OPEN RISKS / QUESTIONS FOR HUMANS: the local site cannot authenticate until the API runs. Current Compose remains DB-only. The API/runner/notary/proxy service interface and dependency decisions are still prerequisites to an authenticated website demo. Sandbox controls remain disabled until a real supported runtime is available. O1, O3, O5, O9 and full O8 acceptance remain open.
+NEXT: resolve the already-recorded backend dependency policy, start the API against local PostgreSQL, then exercise real login, admin, audit, activity, and browser pages. Keep sandbox/workload actions disabled until their real workers exist; continue remaining non-sandbox local work without treating the website demo as objective acceptance.

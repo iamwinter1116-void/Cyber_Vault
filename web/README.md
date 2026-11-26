@@ -15,10 +15,14 @@ The API sets a `Secure` session cookie. Use HTTPS for a browser origin that does
 ## Implemented UI behavior
 
 - Login, logout and session restoration through `/auth/login`, `/auth/logout` and `/auth/me`.
-- API health status, environment list/create/stop/delete/exec, jobs, activity list and admin overview from implemented API routes.
-- Activity updates from the API's authenticated SSE `/stream` endpoint, with the list endpoint refreshed as part of regular console refreshes.
+- API health status, environment list/create/stop/delete/exec, actual per-environment metrics, jobs, activity events, and admin overview from implemented API routes.
+- Activity updates from the API's authenticated SSE `/stream` endpoint, with list refreshes for recovery and other console data.
+- Role-filtered user and team views; admins can create/disable users, create teams, update quotas, and issue the audited kill-switch request.
+- Audit filtering, NDJSON record/checkpoint export, checkpoint display, and the authenticated server-side verification action.
+- Tamper alerts appear from actual activity events without a page reload. The UI labels runsc mode as configured/pending host proof.
 - Configured isolation runtime and degraded-mode indication are taken from the API overview response; the UI labels host proof as pending.
 - File-analysis and AI-scan submission are not offered while their required runtime targets remain unavailable or unapproved.
+- Sandbox create, stop, delete, and exec controls are disabled by default for the local website demonstration. Set `VITE_SANDBOX_ACTIONS_ENABLED=true` only when a real runner and its approved sandbox images are configured; the server remains authoritative for every request.
 
 ## Integration status
 
