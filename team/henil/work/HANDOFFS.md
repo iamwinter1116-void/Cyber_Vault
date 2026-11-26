@@ -250,3 +250,26 @@ NEW DEPENDENCIES: none
 OPEN RISKS / QUESTIONS FOR HUMANS: none beyond pending PostgreSQL/VM test window.
 NEXT: Continue 5-min checks on `origin/integration` for Bhavya's contract suite and Manas's `Makefile` updates.
 
+## 2026-11-26 · Replace unsafe DB test with disposable-DB `live_pg_suite.py`
+
+TASK: Fix unsafe `test_pg_routes.py` per Manas review (`ABHEDYA — next actions for all four of us`)
+STATUS: partial (29/29 unit tests pass with 0 skips; `live_pg_suite.py` ready for Manas to run against a fresh disposable DB)
+CHANGED:
+  - Removed `tests/unit/api/test_pg_routes.py`
+  - Added `tests/unit/api/live_pg_suite.py` (requires `ABH_TEST_ALLOW_DISPOSABLE_DB=1`, `ABH_TEST_OWNER_DSN`, `ABH_TEST_API_DSN` as `abh_api`, `ABH_TEST_NOTARY_DSN` as `abh_notary`; refuses `abhedya` or any DB name without `test`/`disposable`; never disables audit triggers or truncates `audit_log`; fails clearly if config missing)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check .../core .../services/api .../services/notary .../tests/unit/{core,api,notary} -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict ... -> 0 (Success: no issues found in 34 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest .../tests/unit/{core,api,notary} -q -> 0 (29 passed in 2.07s, 0 skipped)
+TESTS: 29/29 unit tests passed (0 skipped); `live_pg_suite.py` not yet run locally (no PostgreSQL in WSL)
+VERIFIED FACTS:
+  - `live_pg_suite.py` is excluded from default `pytest tests/unit` collection so ordinary unit runs report 0 skips.
+  - Exact command for Manas against a fresh disposable database (e.g. `abhedya_test`):
+    `ABH_TEST_ALLOW_DISPOSABLE_DB=1 ABH_TEST_OWNER_DSN="postgresql://postgres:<owner_pw>@<host>:<port>/abhedya_test" ABH_TEST_API_DSN="postgresql://abh_api:<api_pw>@<host>:<port>/abhedya_test" ABH_TEST_NOTARY_DSN="postgresql://abh_notary:<notary_pw>@<host>:<port>/abhedya_test" pytest tests/unit/api/live_pg_suite.py -v`
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL execution of `live_pg_suite.py` awaits Manas's disposable Compose DB run.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS: none
+NEXT: Await Manas's `live_pg_suite.py` output on `abhedya_test`, then open API/notary PR -> `integration`.
+
