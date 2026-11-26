@@ -263,3 +263,30 @@ UNVERIFIED: no Linux/runsc acceptance; the budget count follows Python tokenizer
 NEXT: ask Bhavya to correct PR #20's live-test setup and assertions; request owner decision on dependency
   transitives so Manas can generate OpenAPI with recorded packages. Continue M1 Compose once owners provide
   build images, startup/health commands and approved dependency/image decisions.
+
+## 2026-11-26 · Budget reporter source coverage and Bhavya PR #20 follow-up
+
+TASK: Correct Manas's budget reporter after Parth found that YAML/rule files under sandbox were omitted;
+  review Bhavya's revised PR #20 at d6f972e and Parth's docs-only PR #23.
+STATUS: PR #23 merged as decision papers only; both CRs remain unapproved. PR #20 stays open for live-test
+  assertion fixes. No objective or gate green.
+CHANGED: `db/init/report_budgets.py` now reads limits directly from the docs/05 code-budget table, validates
+  the expected component set, and includes YAML/JSON/YARA/rule source in sandbox and web counts.
+COMMANDS AND RESULTS (Manas Windows host, work/manas before commit):
+  `python db/init/report_budgets.py` -> exit 1; core 180/300, runner 850/800 OVER, API 2000/1100 OVER,
+  sandbox MISSING, notary 131/150, verifier 144/180, web MISSING, host 136/150.
+  `python -c '...documented_budgets()...'` -> exit 0; all eight documented limits read; .yaml and .yar
+  are selected source suffixes. `python -m compileall -q db/init/report_budgets.py` -> exit 0.
+  `git diff --check` -> exit 0.
+REVIEW: Bhavya fixed the RBAC wait and target probing. T-RES-01 still looks for any prior alert in a new
+  five-second window after job completion, so it cannot prove event-to-alert latency. T-RES-02 records a
+  configured pids limit, not evidence that it contained the fork bomb; its hostile env lacks fallback cleanup
+  if assertions fail. T-RES-03 measures free space before provisioning two envs and allows an unapproved 16 MiB
+  surplus above the exact quota. T-RES-04 never measures CPU use and samples health for only about four seconds.
+  T-RES-05 still lacks denied-audit and SQL-sum assertions. T-RES-06 restarts the runner after requesting the
+  env without proving it was mid-provision, and its duplicate check is vacuous because Docker names are unique.
+  T-ISO-04 can omit the detonator subcheck through an environment flag without linking a recorded cut decision.
+UNVERIFIED: no Linux/runsc or live-stack checks run in this review. Source counting for non-Python files is
+  nonblank/non-comment lines; no sandbox/web source exists yet to measure.
+NEXT: send Bhavya the remaining precise assertions; keep PR #20 open. Continue the dependency/image and
+  runner/API budget CR reviews before implementing service Compose blocks or generating OpenAPI.
