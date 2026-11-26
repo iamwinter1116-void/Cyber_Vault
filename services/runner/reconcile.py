@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, cast
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -18,8 +18,11 @@ from psycopg_pool import ConnectionPool
 
 from core.abh_core.audit import Actor, Outcome, append
 from core.abh_core.db import transaction
-from services.runner.launch import EnvRow, RuntimeChoice
+from services.runner.launch import EnvRow
 from services.runner.state import FAILED, Step, Work, decide
+
+if TYPE_CHECKING:  # annotations only; this module makes no Docker call itself
+    from services.runner.objects import DockerOps
 
 Conn = psycopg.Connection[tuple[object, ...]]
 Pool = ConnectionPool[Conn]
@@ -48,14 +51,6 @@ VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s)
 """
 LIVE_SQL = "SELECT id::text FROM env WHERE observed_state NOT IN ('destroyed', 'failed') AND id::text = ANY(%s)"
 CHANGED = (("env.state_changed", "info"),)
-
-
-class DockerWork(Protocol):
-    def provision(self, env: EnvRow) -> RuntimeChoice: ...
-    def stop(self, env: EnvRow) -> None: ...
-    def destroy(self, env_id: str) -> None: ...
-    def labelled_env_ids(self) -> set[str]: ...
-    def remove_unowned(self) -> int: ...
 
 
 @dataclass(frozen=True)
@@ -108,7 +103,7 @@ def claim(pool: Pool, limit: int = 20) -> list[Claimed]:
     return out
 
 
-def _provision(pool: Pool, ops: DockerWork, c: Claimed) -> None:
+def _provision(pool: Pool, ops: DockerOps, c: Claimed) -> None:
     try:
         choice = ops.provision(c.env)
     except Exception as exc:  # any provisioning error: remove what exists, then a visible failed state
@@ -132,7 +127,7 @@ def _provision(pool: Pool, ops: DockerWork, c: Claimed) -> None:
                    "isolation degraded: runc-hardened instead of gVisor, profile T0.H1.N2", detail)
 
 
-def apply(pool: Pool, ops: DockerWork, c: Claimed) -> None:
+def apply(pool: Pool, ops: DockerOps, c: Claimed) -> None:
     if c.step.work is Work.PROVISION:
         _provision(pool, ops, c)
         return
@@ -144,7 +139,7 @@ def apply(pool: Pool, ops: DockerWork, c: Claimed) -> None:
         record(conn, c.env, c.observed, c.step.target_state, c.step.audit_action, c.step.activity)
 
 
-def reconcile_once(pool: Pool, ops: DockerWork) -> int:
+def reconcile_once(pool: Pool, ops: DockerOps) -> int:
     """One pass; a failed stop or destroy is logged and retried on the next pass."""
     done = 0
     for c in claim(pool):
@@ -156,7 +151,7 @@ def reconcile_once(pool: Pool, ops: DockerWork) -> int:
     return done
 
 
-def reap(pool: Pool, ops: DockerWork) -> set[str]:
+def reap(pool: Pool, ops: DockerOps) -> set[str]:
     """Remove labelled objects whose env row is destroyed or missing (docs/08 section 3, every 30 s).
 
     Also: managed objects with no valid abh.env_id (removed outright) and V1 image files whose env is not live.
