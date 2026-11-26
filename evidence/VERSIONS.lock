@@ -1,5 +1,5 @@
 # Allowlisted dependency verification log (docs/03_CONTEXT.md section 6, rule H3)
-# Format: <package>==<installed_version> | pypi_latest=<version> (<release_date>) | maintainer=<maintainer>
+# Format: <package>==<selected_version> | pypi_latest=<version> (<release_date>) | maintainer=<maintainer>
 cryptography==50.0.0 | pypi_latest=50.0.2 (2026-09-30T14:43:44.339921Z) | maintainer=The Python Cryptographic Authority and individual contributors <cryptography-dev@python.org>
 pyyaml==6.0.4 | pypi_latest=6.0.4 (2026-11-20T23:34:39.807190Z) | maintainer=Kirill Simonov
 pytest==8.4.2 | pypi_latest=9.2.0 (2026-10-27T21:30:19.131148Z) | maintainer=Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt
@@ -9,4 +9,11 @@ psycopg==3.3.9 | pypi_latest=3.3.9 (2026-11-12T08:58:18.454897Z) | maintainer=Da
 psycopg-binary==3.3.9 | pypi_latest=3.3.9 (2026-11-12T08:58:23.421990Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com>
 psycopg-pool==3.3.3 | pypi_latest=3.3.3 (2026-09-22T15:53:23.712445Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com>
 docker==7.2.0 | pypi_latest=7.2.0 (2026-07-09T14:53:45.224223Z) | maintainer=Docker Inc. (PyPI package docker)
+argon2-cffi==25.1.0 | pypi_latest=25.1.0 (2025-06-03T06:55:30.804163Z) | maintainer=Hynek Schlawack <hs@ox.cx>
+fastapi==0.165.0 | pypi_latest=0.165.0 (2026-11-18T19:15:35.345110Z) | maintainer=Sebastián Ramírez <tiangolo@gmail.com>
+pydantic==2.14.4 | pypi_latest=2.14.4 (2026-11-19T12:57:37.688752Z) | maintainer=Samuel Colvin, Eric Jolibois, Hasan Ramezani, et al.
 pydantic-settings==2.16.3 | pypi_latest=2.16.3 (2026-11-13T11:18:28.730227Z) | maintainer=Samuel Colvin, Eric Jolibois, Hasan Ramezani
+uvicorn==0.54.0 | pypi_latest=0.54.0 (2026-09-25T06:52:35.829563Z) | maintainer=Tom Christie <tom@tomchristie.com>
+python-multipart==0.0.34 | pypi_latest=0.0.34 (2026-11-16T10:40:37.119518Z) | maintainer=Andrew Dunham <andrew@du.nham.ca>
+ruff==0.17.6 | pypi_latest=0.17.6 (2026-11-19T15:55:52.414980Z) | maintainer=Astral Software Inc. <hey@astral.sh>
+mypy==2.4.1 | pypi_latest=2.4.1 (2026-10-28T19:22:56.488296Z) | maintainer=Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
