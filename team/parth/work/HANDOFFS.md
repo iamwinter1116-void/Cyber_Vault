@@ -231,3 +231,26 @@ STILL OPEN: B1, T-ISO-01/02, T-RES-03/06, all Docker/runsc/storage acceptance; t
   (Manas will run it in a disposable Compose project after Bhavya records the dependencies). pids_limit per
   container remains an interpretation (matches docs/08 section 3 example) until docker inspect and resource tests pass.
 ```
+
+## 2026-11-26 · Sync with integration 26a71e0, net.py folded, budget accounting · commit 2a98ef8
+
+```
+SYNC: `git merge --no-edit origin/integration` into work/parth -> dc3dc2b, exit 0, no conflicts. integration
+  already contained 28cf689 (B0 fix, PR #4) and core.abh_core d3b772e (PR #3). Runner now imports core.abh_core
+  from its own tree. No services/__init__.py on integration; services.runner works as a namespace package.
+CHANGE: services/runner/net.py removed (single-call-site wrapper; docs/05 style limit). network_create_kwargs is in
+  launch.py; objects.py calls client.networks.create(**...). Re-checked against docker-py 7.2.0
+  APIClient.create_network parameters: 0 unaccepted keys.
+CHECKS (Windows, Python 3.15.2, stdlib): 4 runner test modules -> "Ran 32 tests ... OK", exit 0; compileall exit 0.
+BUDGET: 756 physical / 542 code lines of 800; projection and plan in team/parth/work/JOURNAL.md. No overage yet.
+  Needs Manas: the line-counting rule for make check-fast (Makefile on integration has no check-fast target).
+STANDING OPEN ITEMS (carry forward until closed by real evidence):
+  1. Interpretation: each container gets the env's full pids_limit (matches the docs/08 section 3 launch example);
+     stays an interpretation until docker inspect + T-RES tests pass on Linux.
+  2. Gap: an env that fails and whose cleanup also fails keeps its objects/V1 image until its row is destroyed
+     (the reaper treats failed rows as live).
+  3. Unverified: every Docker call (objects.py, launch(), make_image/mkfs, load_template); B0 never run on Linux.
+  4. Pending: test_reconcile_pg.py (6 tests) - Manas runs it in a disposable Compose project after Bhavya records
+     docker 7.2.0, psycopg 3.3.9, psycopg-binary 3.3.9, psycopg-pool 3.3.3, PyYAML 6.0.4 in evidence/VERSIONS.lock.
+  5. Blocked: B7 ai_scan target until the four-person O9 change request.
+```
