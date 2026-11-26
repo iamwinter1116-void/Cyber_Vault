@@ -298,3 +298,16 @@ NEW DEPENDENCIES: none
 OPEN RISKS / QUESTIONS FOR HUMANS: none
 NEXT: Await Manas's `live_pg_suite.py` output on `abhedya_test`, then open API/notary PR -> `integration`.
 
+## 2026-11-26 · Autonomous session paused (checkpoint at `4a274f3`)
+
+STATUS: paused by user (`21:01` IST); all local slices A0–A7 + `live_pg_suite.py` synced with `origin/integration` (`f3328bc`) and pushed to `work/henil`
+VERIFIED ON CURRENT STATE:
+  - `pytest tests/unit/{core,api,notary} -q` -> 29 passed, 0 skipped
+  - `pytest tests/contract/test_audit_vectors.py -v` -> 29 passed (both `core` and `verifier` + `T-AUD-05`)
+  - `ruff check` -> 0; `mypy --strict` -> 0 (34 source files)
+  - `python3 db/init/require.py placeholders` -> exit 1 on `services/api/schemas.py:154` (`Literal["stub-vulnerable", "stub-guarded"]` from frozen `R21` contract; flagged for Manas / O9 CR)
+PENDING ON RESUME:
+  - Manas's `live_pg_suite.py` run against disposable `abhedya_test` DB
+  - `make check-fast` (once `web/` lands and `require.py placeholders` / O9 CR is resolved), `make openapi`, and live stack/VM tests
+  - `services/api` line-budget note in `team/henil/work/JOURNAL.md` (2058/1100)
+
