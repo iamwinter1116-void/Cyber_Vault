@@ -66,3 +66,9 @@ Consequence: B6 (file analysis) cannot fit without either a reduction pass or a 
   (a budget change needs a four-person change request, CLAUDE.md rule 8). Raised with Manas in HANDOFFS.md.
 Reduction candidates for a later pass, after Linux results: merge the duplicated env-row lookups in collect.py
   and jobs.py; shorter error-message branches in templates.py/launch.py; one shared "service actor" helper.
+
+### Budget reduction pass · services/runner 857 -> 850 code lines   2026-11-26 · owner B
+Manas asked for a reduction pass before any budget CR. Done: removed the one-implementation DockerWork Protocol
+and three never-read Template fields; no unused module-level names found. The rest is required behaviour
+(listed in team/parth/work/CR_PROPOSAL_runner_budget.md). Still over: 850/800 code, 1185 physical. The
+over-budget line is now backed by that proposal (request 1000, B6 included as an estimate, B7 excluded).
