@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -25,18 +26,37 @@ def _login(client: httpx.Client, stack_url: str, email: str) -> str:
     return r.json()["csrf_token"]
 
 
-def _create_env(client: httpx.Client, stack_url: str, csrf: str, name: str) -> str:
+def _create_env(client: httpx.Client, stack_url: str, csrf: str, name: str, wait_running: bool = False) -> str:
     r = client.post(
         f"{stack_url}{BASE_PATH}/envs",
         headers={"X-CSRF-Token": csrf},
         json={"name": name, "template": "app-target", "size": "S", "ttl_minutes": 10},
     )
     assert r.status_code == 201, f"create env failed: {r.status_code} {r.text}"
-    return r.json()["id"]
+    env_id = r.json()["id"]
+    if wait_running:
+        deadline = time.monotonic() + 30.0
+        while time.monotonic() < deadline:
+            gr = client.get(f"{stack_url}{BASE_PATH}/envs/{env_id}")
+            assert gr.status_code == 200
+            if gr.json()["observed_state"] == "running":
+                return env_id
+            time.sleep(0.5)
+        pytest.fail(f"Env {env_id} did not reach running within 30s")
+    return env_id
 
 
 def _delete_env(client: httpx.Client, stack_url: str, csrf: str, env_id: str) -> None:
-    client.delete(f"{stack_url}{BASE_PATH}/envs/{env_id}", headers={"X-CSRF-Token": csrf})
+    dr = client.delete(f"{stack_url}{BASE_PATH}/envs/{env_id}", headers={"X-CSRF-Token": csrf})
+    assert dr.status_code == 202, f"delete env {env_id} failed: {dr.status_code} {dr.text}"
+    deadline = time.monotonic() + 30.0
+    while time.monotonic() < deadline:
+        gr = client.get(f"{stack_url}{BASE_PATH}/envs/{env_id}")
+        assert gr.status_code == 200
+        if gr.json()["observed_state"] in ("destroyed", "failed"):
+            return
+        time.sleep(0.5)
+    pytest.fail(f"Env {env_id} did not reach destroyed/failed within 30s")
 
 
 def _create_exec_job(client: httpx.Client, stack_url: str, csrf: str, env_id: str) -> str:
@@ -81,8 +101,8 @@ def real_rbac_ids(stack_url: str) -> Iterator[dict[str, str]]:
     with httpx.Client(verify=False, timeout=5.0) as a_cli, httpx.Client(verify=False, timeout=5.0) as b_cli:
         a_csrf = _login(a_cli, stack_url, "analyst.alpha@abhedya.local")
         b_csrf = _login(b_cli, stack_url, "lead.bravo@abhedya.local")
-        alpha_env = _create_env(a_cli, stack_url, a_csrf, "rbac-alpha-shared")
-        bravo_env = _create_env(b_cli, stack_url, b_csrf, "rbac-bravo-shared")
+        alpha_env = _create_env(a_cli, stack_url, a_csrf, "rbac-alpha-shared", wait_running=True)
+        bravo_env = _create_env(b_cli, stack_url, b_csrf, "rbac-bravo-shared", wait_running=True)
         alpha_job = _create_exec_job(a_cli, stack_url, a_csrf, alpha_env)
         bravo_job = _create_exec_job(b_cli, stack_url, b_csrf, bravo_env)
         try:

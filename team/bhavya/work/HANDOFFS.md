@@ -184,3 +184,28 @@ CONTRACT CONFLICT FOR TEAM REVIEW:
 NEXT: Manas reviews PR from work/bhavya to integration; Bhavya runs live suites on primary VM and starts C3 once contracts/openapi.yaml lands.
 ```
 
+```
+TASK: PR #20 review fixes (RBAC wait_running/cleanup, T-RES-01..06, T-ISO-04 toolbox+target, T-WL-01 unique target DNS)
+STATUS: partial (all local checks pass; all Linux/runsc and live-stack checks remain unrun until primary VM stack is up)
+CHANGED:
+  - tests/contract/test_rbac_matrix.py (real_rbac_ids waits for observed_state=running before exec; _delete_env asserts 202 and waits for destroyed/failed)
+  - tests/security/conftest.py (added delete_env_and_wait helper)
+  - tests/security/test_resources.py (T-RES-01 neighbor loop across stress + <=5s alert from OOM; T-RES-02 Docker objects removed <=15s + record_property limit evidence; T-RES-03 host free space bound + neighbor write; T-RES-05 exact 409 QUOTA_EXCEEDED without 201; T-RES-06 network/volume cleanup + runner restart convergence; finally cleanup everywhere)
+  - tests/security/test_isolation.py (T-ISO-04 probes from both toolbox and target; detonator conditional on ABH_ENABLE_DETONATION)
+  - tests/security/test_workloads.py (T-WL-01 tests alpha unique target container name via probe_dns + probe_connect from bravo + cleanup)
+COMMANDS RUN (with exit codes):
+  $ python -m py_compile ... -> 0
+  $ git -C d:\Cyber_Vault diff --check -> 0
+  $ python -m pytest d:\Cyber_Vault\tests\contract --collect-only -q -> 0 (216 tests collected in 1.47s)
+  $ python -m pytest d:\Cyber_Vault\tests\security --collect-only -q -> 0 (28 tests collected in 0.67s)
+  $ python -m pytest d:\Cyber_Vault\tests\e2e --collect-only -q -> 0 (4 tests collected in 0.55s)
+  $ python -m pytest tests/contract/test_rbac_matrix.py::test_t_rbac_05_registered_routes_match_matrix tests/contract/test_audit_vectors.py tests/security/test_isolation.py::test_t_static_01_compose_and_runner_no_dangerous_flags -q -> 0 (31 passed in 17.58s)
+TESTS:
+  - Passed locally (31): T-RBAC-05, T-KAT-01..04 (core + verifier), T-AUD-05 (60 Hypothesis examples), T-STATIC-01
+  - Unrun Linux/runsc & live-stack checks: T-ISO-01..07, T-RES-01..06, T-AUD-01..04, 06..08, T-MON-01..04, T-WL-01..03, T-E2E-01..04, T-RBAC-01..03, 07, 09..12, T-AUTH-01..05, T-API-01
+OPEN ITEMS FOR TEAM:
+  - T-RES-02 contract note: runner has no auto-stop on fork bomb; test issues DELETE after 30s window per Manas's procedure in PROBE_CONTRACT.md v3.
+  - R21 / T-WL-03 stub-target conflict remains open for the four-person O9 CR (not counted as working).
+NEXT: Manas reviews updated PR #20 (work/bhavya -> integration); run live suites on Linux/runsc primary VM once stack is up.
+```
+

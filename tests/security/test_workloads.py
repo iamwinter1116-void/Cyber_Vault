@@ -6,7 +6,7 @@ import json
 import subprocess
 import time
 
-from .conftest import API_BASE, create_env_and_wait, docker_managed_inspect, exec_in_env, login_as
+from .conftest import API_BASE, create_env_and_wait, delete_env_and_wait, docker_managed_inspect, exec_in_env, login_as
 
 # Official 68-byte EICAR Standard Anti-Virus Test File (source: https://www.eicar.org/download-anti-virus-testfile/)
 EICAR_BYTES = rb"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
@@ -24,17 +24,28 @@ def _wait_job(client, job_id: str, timeout_s: float = 150.0) -> dict:
 
 
 def test_t_wl_01_app_target_connectivity_and_isolation(stack_url: str) -> None:
-    """T-WL-01: toolbox reaches target home page HTTP 200; isolated from another env."""
+    """T-WL-01: toolbox reaches target home page HTTP 200; alpha's unique target name does not resolve from bravo."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "wl-01-alpha")
     env_b = create_env_and_wait(cb, csrfb, "wl-01-bravo")
-    ok = exec_in_env(ca, csrfa, env_a["id"], "curl -s -o /dev/null -w '%{http_code}' http://target:8080/")
-    assert "200" in ok["result"]["output"]
-    dns_blocked = exec_in_env(cb, csrfb, env_b["id"], "probe_dns target 3")
-    assert json.loads(dns_blocked["result"]["output"].strip().splitlines()[-1])["resolved"] is False
-    blocked = exec_in_env(cb, csrfb, env_b["id"], "probe_connect target 8080 3")
-    assert json.loads(blocked["result"]["output"].strip().splitlines()[-1])["reachable"] is False
+    try:
+        ok = exec_in_env(ca, csrfa, env_a["id"], "curl -s -o /dev/null -w '%{http_code}' http://target:8080/")
+        assert "200" in ok["result"]["output"]
+        alpha_targets = [
+            c["Name"].lstrip("/")
+            for c in docker_managed_inspect()
+            if c["Config"]["Labels"].get("abh.env_id") == env_a["id"] and "target" in c["Name"]
+        ]
+        assert alpha_targets, f"No unique target container found for alpha env {env_a['id']}"
+        alpha_target = alpha_targets[0]
+        dns_blocked = exec_in_env(cb, csrfb, env_b["id"], f"probe_dns {alpha_target} 3")
+        assert json.loads(dns_blocked["result"]["output"].strip().splitlines()[-1])["resolved"] is False
+        blocked = exec_in_env(cb, csrfb, env_b["id"], f"probe_connect {alpha_target} 8080 3")
+        assert json.loads(blocked["result"]["output"].strip().splitlines()[-1])["reachable"] is False
+    finally:
+        delete_env_and_wait(ca, csrfa, env_a["id"])
+        delete_env_and_wait(cb, csrfb, env_b["id"])
 
 
 def test_t_wl_02_file_analysis_eicar_benign_and_cleanup(stack_url: str) -> None:
