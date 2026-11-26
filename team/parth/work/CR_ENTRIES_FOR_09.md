@@ -22,7 +22,7 @@ Proposed change: in docs/03_CONTEXT.md line 222, after "Sandbox images: `yara-x`
 Affected: B (images, probes, target app, runner image), C (security/workload tests call the probes and curl),
   D (builds on the Linux host, lock and evidence), A (same base/transitive rule applies to api/notary images
   if adopted). Tests: T-ISO-01..07, T-RES-01..06, T-WL-01..02, T-E2E-01, T-MON-02.
-Agreed by: A __  B __  C __  D __
+Agreed by: A __  B yes (Parth, 2026-11-26 22:57 IST)  C __  D __
 Applied in commit: <id>
 ```
 
@@ -34,9 +34,12 @@ Problem: `make budget-report` on integration 9c8675b prints `services/runner: 85
 Proposed change: in docs/05_OBJECTIVES.md line 33, change "| `services/runner` | 800 |" to
   "| `services/runner` | 1000 |". The 150 lines above the current count are an estimate for B6, measured and
   reported at the B6 commit. B7 (ai_scan) is excluded and needs its own budget in the O9 change request.
-  Alternative: keep 800 and drop or shrink B6 (docs/02 section 5 cut 5 already allows cutting detonation).
-Affected: B (runner, B6), D (`make budget-report` limit in db/init/report_budgets.py would follow the doc).
+  Alternative: none that fits 800. The runner is already at 850 before any B6 line, and O9 (mandatory,
+  docs/05) requires file-analysis static triage; docs/02 section 5 cut 5 removes only detonation ("keep static
+  triage"). Cutting detonation would lower the B6 estimate, not bring the total under 800.
+Affected: B (runner, B6), D (`make budget-report` reads its limits from this docs/05 table since PR #24,
+  so it follows the change without a code edit).
   Tests: T-WL-02 (B6).
-Agreed by: A __  B __  C __  D __
+Agreed by: A __  B yes (Parth, 2026-11-26 22:57 IST)  C __  D __
 Applied in commit: <id>
 ```

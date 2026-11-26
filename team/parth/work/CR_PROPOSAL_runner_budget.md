@@ -39,4 +39,6 @@ current 850 plus B6 file analysis (analyzer run, rule-match parse, verdict, deto
 The 150-line allowance for B6 is an ESTIMATE from B5's measured 133 lines for a comparable job path; my
 earlier B5 estimate (60) was wrong, so the B6 slice will be measured and reported at its commit.
 B7 (ai_scan) is not included: it is blocked by the O9 change request, which should carry its own budget.
-Alternative for the team: keep 800 and drop or shrink B6 (docs/02 cut order already allows cutting detonation).
+Alternative: none that fits 800. The runner is already at 850 before any B6 line, and O9 (mandatory,
+docs/05) requires file-analysis static triage; docs/02 section 5 cut 5 removes only detonation ("keep static
+triage"). Cutting detonation would lower the B6 estimate, not bring the total under 800.

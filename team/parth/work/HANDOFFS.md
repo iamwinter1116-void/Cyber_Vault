@@ -535,3 +535,28 @@ STANDING OPEN ITEMS: unchanged (budget 850/800 open; images not built; every Doc
   B5 in-sandbox checks pending; host measurements: V1 same path, socket gid, ICMP, /sys/class/net, OOM scope,
   stop time; B7 blocked by the O9 CR). No gate or objective green.
 ```
+
+## 2026-11-26 · B decision on both change requests · this commit
+
+```
+DECISION (B, Parth, given explicitly by Parth on 2026-11-26 22:57 IST; recorded by the agent):
+  CR "docs/03_CONTEXT.md section 6 (base image, packages)"  -> B: YES
+  CR "docs/05_OBJECTIVES.md Code budget (services/runner 800 -> 1000)" -> B: YES
+  Both recorded in the B slot of team/parth/work/CR_ENTRIES_FOR_09.md. A, C, D still open; Manas relays.
+CORRECTIONS before the decision (so B decided on accurate text):
+  - CR 2 "Alternative" said "keep 800 and drop or shrink B6". Wrong: the runner is already 850 before any B6
+    line, and O9 (mandatory, docs/05) needs file-analysis static triage; docs/02 cut 5 removes only detonation.
+    Now: "none that fits 800" with that reason (CR_ENTRIES_FOR_09.md and CR_PROPOSAL_runner_budget.md).
+  - CR 2 "Affected": make budget-report reads its limits from the docs/05 table since PR #24, so applying the
+    docs change needs no code edit.
+  - My previous entry said sandbox .yaml files are not counted; since PR #24 the reporter counts .yaml, .yml,
+    .json, .yar, .yara, .rules and .conf, so template YAML and analyzer rules count toward sandbox/'s 450
+    (the image CR's estimate already included ~30 lines of template YAML).
+CHECKED: integration 59e49dc; `python db/init/report_budgets.py` -> exit 1, "services/runner: 850/800 OVER".
+  Bhavya d6f972e (PR #20, unmerged): T-RES-02 now asserts no labelled Docker objects remain and records
+  pids_limit plus the fork_bomb job result; T-ISO-04 loops over toolbox and target; T-RES-03 checks host free
+  space and a neighbour write. Note: its free-space check reads the host volume directory, which reflects
+  storage V1 only (V2/V3 use RAM).
+HOLD (Manas): B2 image work, B6 and runner growth stay on hold until all four decisions are recorded and the
+  CRs are applied in docs/03 and docs/05.
+```
