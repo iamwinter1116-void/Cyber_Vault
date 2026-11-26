@@ -290,3 +290,30 @@ UNVERIFIED: no Linux/runsc or live-stack checks run in this review. Source count
   nonblank/non-comment lines; no sandbox/web source exists yet to measure.
 NEXT: send Bhavya the remaining precise assertions; keep PR #20 open. Continue the dependency/image and
   runner/API budget CR reviews before implementing service Compose blocks or generating OpenAPI.
+
+## 2026-11-26 · Independent PR #20 collection and M1 readiness recheck
+
+TASK: Recheck revised Bhavya PR #20 at d6f972e without modifying her paths; confirm what Manas can wire now.
+STATUS: PR #20 remains open. PR #23 (decision papers) and PR #24 (budget reporter fix) merged; neither
+  approves a CR. M1 phase 2 remains incomplete.
+COMMANDS AND RESULTS (Manas Windows laptop):
+  Fresh detached worktree at d6f972e: `python -m compileall -q tests/contract tests/security tests/e2e
+  tools/collect_evidence.py` -> exit 0. `git diff --check origin/integration...HEAD` -> exit 0.
+  With isolated recorded runner dependencies on PYTHONPATH, `pytest tests/contract/test_rbac_matrix.py
+  --collect-only -qq` -> exit 0, 181 cases. `pytest tests/security --collect-only -q` -> exit 0,
+  28 cases. `pytest tests/e2e --collect-only -q` -> exit 0, 4 cases.
+  `pytest tests/security/test_isolation.py::test_t_static_01_compose_and_runner_no_dangerous_flags -q`
+  -> exit 0, 1 passed. Full contract collection -> exit 1: this isolated host lacks hypothesis;
+  187 cases collected before that import error. Bhavya reported full collection on her own host;
+  this is an environment limitation, not a verdict on that code.
+  `docker compose config --services` -> exit 0, only `db`.
+  `make openapi` -> exit 1, ModuleNotFoundError for psycopg in the current Python environment.
+  `make check-fast` -> exit 1 at budget report: runner 850/800, API 2000/1100, sandbox and web missing.
+REVIEW: T-RES-01 alert timing still is not tied to the OOM timestamp; T-RES-02 does not assert which
+  resource contained the fork bomb and leaves the hostile env if an assertion fails; T-RES-03 measures free
+  space before two envs are provisioned and allows quota +16 MiB; T-RES-04 does not measure CPU; T-RES-05
+  omits denied-audit and SQL-sum checks; T-RES-06 does not ensure restart mid-provision and its uniqueness
+  assertion uses Docker-unique names. T-ISO-04's detonation bypass depends on an environment flag without
+  a recorded cut decision. No live security test was run here.
+NEXT: Bhavya revises PR #20; all four review image/dependency and runner-budget CRs. Manas wires real
+  services only after owner images and package decisions, then runs OpenAPI and local integration checks.
