@@ -101,3 +101,14 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
 NEXT: C3 Console shell, login, environments (once contracts/openapi.yaml lands on integration).
 ```
 
+```
+TASK: Probe contract alignment with Parth (2075dbf) for T-ISO-03 and T-WL-01
+STATUS: done (local test alignment; live-stack execution awaits primary VM)
+CHANGED:
+  - tests/security/test_isolation.py (updated T-ISO-03 for probe_connect, probe_icmp with sent check, and probe_dns)
+  - tests/security/test_workloads.py (parsed JSON line in T-WL-01 instead of literal string match)
+FOR PARTH (probe contract response):
+  - Agreed on all 5 probe JSON schemas in team/parth/work/HANDOFFS.md (2075dbf): probe_connect, probe_icmp, probe_dns, probe_env, probe_write.
+  - For T-ISO-03 ICMP under cap_drop=ALL: updated test_t_iso_03_cross_team_network_isolation so ICMP asserts reachable==False only when sent==True, and records icmp_note via pytest record_property (in JUnit XML) as not testable when sent==False rather than counting an unsent probe as isolation evidence.
+```
+

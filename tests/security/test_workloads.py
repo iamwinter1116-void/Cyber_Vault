@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 
 from .conftest import API_BASE, create_env_and_wait, docker_managed_inspect, exec_in_env, login_as
@@ -29,7 +30,7 @@ def test_t_wl_01_app_target_connectivity_and_isolation(stack_url: str) -> None:
     ok = exec_in_env(ca, csrfa, env_a["id"], "curl -s -o /dev/null -w '%{http_code}' http://target:8080/")
     assert "200" in ok["result"]["output"]
     blocked = exec_in_env(cb, csrfb, env_b["id"], "probe_connect target 8080 3")
-    assert '"reachable": false' in blocked["result"]["output"].lower()
+    assert json.loads(blocked["result"]["output"].strip().splitlines()[-1])["reachable"] is False
 
 
 def test_t_wl_02_file_analysis_eicar_benign_and_cleanup(stack_url: str) -> None:

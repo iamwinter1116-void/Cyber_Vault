@@ -41,24 +41,27 @@ def test_t_iso_02_sandbox_profile(stack_url: str) -> None:
             assert req in labels
 
 
-def test_t_iso_03_cross_team_network_isolation(stack_url: str) -> None:
+def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: pytest.FixtureRequest) -> None:
     """T-ISO-03: Alpha toolbox cannot TCP connect/ICMP/DNS to bravo containers."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-03-alpha")
     env_b = create_env_and_wait(cb, csrfb, "iso-03-bravo")
-    bravo_ips = [
-        net["IPAddress"]
-        for c in docker_managed_inspect()
-        if c["Config"]["Labels"].get("abh.env_id") == env_b["id"]
-        for net in c["NetworkSettings"]["Networks"].values()
-        if net.get("IPAddress")
-    ]
+    bravo_containers = [c for c in docker_managed_inspect() if c["Config"]["Labels"].get("abh.env_id") == env_b["id"]]
+    bravo_ips = [net["IPAddress"] for c in bravo_containers for net in c["NetworkSettings"]["Networks"].values() if net.get("IPAddress")]
     assert bravo_ips, "No IP addresses found for bravo containers"
     for ip in bravo_ips:
-        job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {ip} 80 3")
-        out = json.loads(job["result"]["output"].strip().splitlines()[-1])
-        assert out["reachable"] is False, f"Cross-team reachability succeeded to {ip}"
+        tcp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {ip} 80 3")["result"]["output"].strip().splitlines()[-1])
+        assert tcp["reachable"] is False, f"Cross-team TCP reachability succeeded to {ip}"
+        icmp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_icmp {ip} 3")["result"]["output"].strip().splitlines()[-1])
+        if icmp.get("sent"):
+            assert icmp["reachable"] is False, f"Cross-team ICMP reachability succeeded to {ip}"
+        else:
+            record_property("icmp_note", f"ICMP not testable under cap_drop=ALL for {ip}: {icmp.get('error')}")
+    for c in bravo_containers:
+        cname = c["Name"].lstrip("/")
+        dns = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_dns {cname} 3")["result"]["output"].strip().splitlines()[-1])
+        assert dns["resolved"] is False, f"Cross-team DNS resolved {cname}: {dns.get('addresses')}"
 
 
 def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
