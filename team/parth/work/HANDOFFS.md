@@ -503,3 +503,35 @@ FOR BHAVYA: T-ISO-04 should also run from container "target"; T-RES-02 per Manas
   DELETE, removal within 15 s, containing limit recorded); fork_bomb JSON now has errno.
 NEXT: four-person decisions on the image and budget CRs; then B2 per PROBE_CONTRACT v3; host plan in Manas's window.
 ```
+
+## 2026-11-26 · Collecting the four-person decisions; official budget count; review of Bhavya PR #20 · this commit
+
+```
+TASK: Manas (PR #21 merged): keep SIGTERM rule, keep stop-time claim unverified, collect the four decisions on
+  the image and runner-budget proposals; B2 only after approval; B6 and runner growth on hold.
+STATUS: decision papers ready; NO decision recorded yet (A, B, C, D all open). No code changed.
+SYNC: `git merge --ff-only origin/integration` -> 9c8675b (PR #22 budget report); my paths unchanged by it.
+CORRECTION to my earlier entries: the "about 20 s per app-target stop" figure is an EXPECTATION from Linux
+  PID 1 semantics, not a measurement; CR_PROPOSAL_sandbox_images.md now says so (host plan step 4 measures it).
+OFFICIAL COUNT: `python db/init/report_budgets.py` (Windows, Python 3.15.2) -> exit 1, prints
+  "services/runner: 850/800 OVER" (also api 2000/1100 OVER, sandbox and web/src MISSING); per-file runner
+  counts equal my ast counts (collect 125, reconcile 131, launch 119, jobs 98, ...). Note: the script counts
+  .py/.sh/Dockerfile/web files only, so sandbox template .yaml files do not count toward sandbox/'s 450.
+CHANGED: CR_ENTRIES_FOR_09.md (new: two entries in docs/09 Part 4 format, with a D slot because the template
+  lists A/B/C but the rule is all four; numbers assigned at paste), CR_PROPOSAL_runner_budget.md (official
+  counter; Manas's 14/14 rerun recorded), CR_PROPOSAL_sandbox_images.md (stop time marked unverified).
+REVIEW of Bhavya PR #20 (origin/work/bhavya cdc62e9, "PROBE_CONTRACT v2 alignment"; contract is now v3):
+  Done well: T-RES-01 now checks alert.oom_killed within 5 s, env.oom_killed audit, neighbour <= 1 missed beat;
+  T-RES-02 runs 30 s then DELETEs; T-RES-03 requires exit 1, errno ENOSPC, bytes_written <= storage_mb MiB;
+  T-WL-01 uses probe_dns; T-ISO-06 checks the read-only error.
+  Still open: (1) T-RES-02 checks only observed_state == "destroyed" (the runner's own claim, written after
+  objects.destroy returns); Manas asked to verify the runner removed the resources: label-filtered
+  docker ps -a / network ls / volume ls, as her T-WL-02 does; and nothing records which limit contained the
+  bomb. (2) T-ISO-04 runs from toolbox only; v3 + Manas: every shipped sandbox, i.e. also container "target".
+  (3) T-RES-03 does not check "host free space dropped by no more than the quota; neighbour can still write".
+DECISIONS NEEDED (yes/no each, on CR_ENTRIES_FOR_09.md): A Henil (paused since 21:01), B Parth, C Bhavya,
+  D Manas. After four yes: a human pastes both entries into docs/09 and records the commit; then B2.
+STANDING OPEN ITEMS: unchanged (budget 850/800 open; images not built; every Docker/runsc call unverified;
+  B5 in-sandbox checks pending; host measurements: V1 same path, socket gid, ICMP, /sys/class/net, OOM scope,
+  stop time; B7 blocked by the O9 CR). No gate or objective green.
+```
