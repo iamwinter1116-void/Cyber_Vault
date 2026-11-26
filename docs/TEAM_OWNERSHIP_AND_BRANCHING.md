@@ -11,12 +11,14 @@ The machine-readable contracts remain frozen and authoritative; this document do
 The folder began as an instruction pack, contracts, and project documentation. The `core/`, `services/`, `web/`,
 `host/`, `sandbox/`, `tests/`, and deployment implementation described in those documents are not present yet.
 The four new specification documents under `docs/specs/` are completed planning artifacts, not executable code.
-Create implementation files only after the initial shared repository commit and branch setup described below.
+The initial shared planning commit and six-branch setup are now pushed; feature implementation can begin on the four
+owner branches according to the boundaries below.
 
-The shared remote is `https://github.com/iamwinter1116-void/Cyber_Vault`. It was inspected as a private empty repository;
-the connected GitHub account has write permission but not admin permission. Branches can be created and pushed, but
-remote branch-protection rules may require the repository owner/admin. Do not call the Manas-only merge rule enforced
-until the `main` and `integration` rules are visible in GitHub settings.
+The shared remote is `https://github.com/iamwinter1116-void/Cyber_Vault`. It is private; its default branch is `main`.
+The connected GitHub account has write permission but not admin permission. The initial branch set is pushed at commit
+`7c81ec7`: `main`, `integration`, and `work/{manas,parth,henil,bhavya}`. The GitHub branch-protection API returned 404
+for both protected branches, and a read confirmed no rule is configured. The repository owner/admin must configure the
+remote rules before the Manas-only merge rule can be enforced; until then this agreement is procedural.
 
 ## 2. Team, role, and primary responsibility
 
@@ -162,7 +164,7 @@ your branch. Record the chosen resolution in the owning person's handoff and the
 
 ## 7. Remote branch protection requirement
 
-After Manas or the repository owner confirms the branch rules can be managed:
+After the repository owner/admin enables ruleset management:
 
 1. Set `origin` to the shared repository and push `main`, `integration`, and all four `work/*` branches.
 2. Protect `main`: require pull requests, require Manas as the only person with merge permission, require CI, disallow force-push and deletion.
@@ -171,12 +173,14 @@ After Manas or the repository owner confirms the branch rules can be managed:
 5. Keep contributors as branch writers without merge permission to the protected branches.
 6. Confirm branch rules in repository settings; a local policy or local branch name alone cannot enforce permissions on a remote.
 
-The connected account is `choksi2212`; confirm that this is Manas's GitHub identity before treating CODEOWNERS or
-branch restriction lists as proof of personal authority. Repository owner/admin access remains required for settings.
+The connected account is `choksi2212`, and the local Git identity is `manaschoksiwork@gmail.com`. `.github/CODEOWNERS`
+assigns that GitHub account as the catch-all code owner. Repository owner/admin access remains required for settings;
+CODEOWNERS requests review but by itself does not prevent another writer from merging.
 
 ## 8. Known state and next action
 
-The instruction pack, frozen contracts, and planning documents exist. The product implementation is not present in this folder.
-Do not describe the application as partly implemented until code and test evidence are visible on the shared branches.
-The immediate sequence is: Manas initializes Git and the four-person branch structure; Manas creates the primary VM;
-Parth runs host preflight; Bhavya and Henil prepare their owned test/API slices; then the four owners build through PRs.
+The instruction pack, frozen contracts, planning documents, and branch skeleton exist. The product implementation is not
+present in this folder. Do not describe the application as partly implemented until code and test evidence are visible
+on the shared branches. Immediate sequence: repository owner/admin configures and verifies branch rules; Manas creates
+the primary VM; Parth runs host preflight; Bhavya prepares the owned test slice; Henil implements the first API/core
+slice after the scaffold; then all owners build through PRs to `integration`.
