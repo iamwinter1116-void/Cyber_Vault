@@ -33,7 +33,7 @@ check-fast:
 	$(PYTHON) -m ruff check core services tests/unit
 	$(PYTHON) -m mypy --strict core/abh_core services/api services/notary services/runner tests/unit
 	cd web && npx --no-install tsc --noEmit
-	$(PYTHON) -m pytest tests/unit -q
+	$(PYTHON) -m pytest tests/unit db/init/test_generate_secrets.py -q
 	$(PYTHON) db/init/require.py placeholders
 
 budget-report:

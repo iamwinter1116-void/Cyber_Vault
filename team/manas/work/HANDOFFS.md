@@ -403,7 +403,7 @@ NEXT: complete the required package/security review and record the decision thro
 
 TASK: Continue L1 backend enablement without installing unapproved packages; make the generated service-role database credentials usable by a real Linux client container.
 STATUS: Dependency closures are hash-resolved but still proposals. Role-specific password files have been generated and verified against the live local PostgreSQL service. No API process or endpoint is claimed running.
-CHANGED: `db/init/generate_secrets.py` now creates `secrets/abh_api.pgpass`, `secrets/abh_runner.pgpass`, and `secrets/abh_notary.pgpass` from the existing role passwords. New `db/init/with_pgpass.sh` makes a private mode-600 copy in writable temporary storage and `exec`s the requested process with `PGPASSFILE` set. Added `db/init/test_generate_secrets.py` and separate runtime/dev candidate locks; corrected `API_DEPENDENCY_PROPOSAL.md`; updated this handoff and `PLAN_M1_M3.md`. All actual secret files remain ignored and were not committed.
+CHANGED: `db/init/generate_secrets.py` now creates `secrets/abh_api.pgpass`, `secrets/abh_runner.pgpass`, and `secrets/abh_notary.pgpass` from the existing role passwords. New `db/init/with_pgpass.sh` makes a private mode-600 copy in writable temporary storage and `exec`s the requested process with `PGPASSFILE` set. Added `db/init/test_generate_secrets.py`; `make check-fast` now includes it in the pytest invocation. Also added separate runtime/dev candidate locks, corrected `API_DEPENDENCY_PROPOSAL.md`, and updated this handoff and `PLAN_M1_M3.md`. All actual secret files remain ignored and were not committed.
 DEPENDENCY CANDIDATE RESULTS:
   - `uv pip compile ...API_REQUIREMENTS_RUNTIME.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 27 packages, 510 artifact hashes (10 direct + 17 resolver-added).
   - `uv pip compile ...API_REQUIREMENTS_DEV.in --python-version 3.11 --universal --generate-hashes` -> exit 0; 44 packages, 867 artifact hashes (15 direct + 29 resolver-added).
@@ -413,6 +413,7 @@ DEPENDENCY CANDIDATE RESULTS:
 DATABASE CREDENTIAL EVIDENCE (Windows Docker Desktop, real local Compose PostgreSQL):
   - `python -m compileall -q db/init/generate_secrets.py` -> exit 0; syntax only.
   - `python -m pytest db/init/test_generate_secrets.py -q` -> 4 passed; covers valid format, role-specific file content, idempotence, no credential output, and refusal of invalid/mismatched credentials.
+  - `make -n check-fast` -> exit 0; expanded dry-run includes `db/init/test_generate_secrets.py` in the existing unit pytest command. This validates target expansion only, not the whole check-fast target.
   - `docker run ... /bin/sh -n /with_pgpass.sh` against the pinned PostgreSQL client image -> exit 0.
   - The first repeat DB probe exited nonzero because its `ROLE` environment option was placed after the image command; psql correctly defaulted to `root` and rejected the connection. The corrected invocation put `--env ROLE=<service-role>` before the image and passed all three roles below.
   - `make secrets` -> exit 0; existing six base credentials and key pair preserved; three corresponding pgpass files present.
@@ -422,5 +423,6 @@ DATABASE CREDENTIAL EVIDENCE (Windows Docker Desktop, real local Compose Postgre
   - `python db/init/report_budgets.py` -> exit 1: core 180/300 OK; runner 850/800 OVER; API 2000/1100 OVER; sandbox missing/450; notary 131/150 OK; verifier 144/180 OK; web/src 557/1800 OK; host 136/150 OK.
   - `git diff --check` -> exit 0; focused `python -m compileall -q db/init/generate_secrets.py db/init/test_generate_secrets.py` -> exit 0.
 UNVERIFIED: API imports/startup, health and auth routes, database operations through API, full unit/security suites, runtime package licenses/security, Linux image behavior, and final service entrypoint. No objective or gate is green.
+SOURCE REVIEW: current `services/api/routes/auth.py` executes `_attempt_login` inside the connection/transaction context, exits that context, then raises any returned `ApiError`; this appears to prevent the earlier denied-login audit rollback. This is source inspection only; the API's denied-login path was not executed in this turn.
 OPEN DEPENDENCIES: dependency/transitive approval; API image/base-image decision; formal API budget change (reported 2000/1100); wire the tested helper into the eventual API service entrypoint.
 NEXT: finish reviewable dependency metadata and backend source review in parallel with no installation; once formal policy approvals are recorded, install only the approved lock in an isolated venv, create the real API service/container wiring, invoke the tested helper from its entrypoint, and execute health/auth/database/API test journeys against the live local PostgreSQL.
