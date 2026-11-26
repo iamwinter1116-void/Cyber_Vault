@@ -201,3 +201,29 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - `services/notary/__main__.py` is 182 lines (budget 150) and `services/api` is ~2400 lines (budget 1100); Task A7 will deduplicate SQL/helper code to trim both within budget.
 NEXT: A7 (hardening & line-budget trim + OpenAPI export helper), while continuing 5-min checks on `origin/integration`.
 
+## 2026-11-26 · Task A7 local hardening, budget trim, and OpenAPI export (`core/`, `services/api/`, `services/notary/`)
+
+TASK: A7 · Hardening pass, placeholder scan, line-budget trim, and OpenAPI export (`make openapi` hook)
+STATUS: partial (all local unit/vector/matrix/OpenAPI/ruff/mypy checks pass; full-stack/PostgreSQL contract & security suites pending Manas's M1 on `integration` and demo VM)
+CHANGED:
+  - `services/notary/__main__.py` (trimmed to 135 code lines <= 150 budget)
+  - `services/api/openapi_export.py` (`dump_openapi()` for `make openapi`)
+  - `tests/unit/api/test_authz.py` (verifies `dump_openapi()` generates 31 `/api/v1` operations)
+  - `team/henil/work/JOURNAL.md` (recorded `services/api` budget note per `docs/05_OBJECTIVES.md`)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/services/notary /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 32 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (29 passed in 2.60s)
+  $ non-comment code line count -> `core/abh_core`: 192/300; `services/notary`: 135/150; `services/api`: 2058 (documented in `team/henil/work/JOURNAL.md`)
+TESTS: 29/29 unit tests passed; 0 placeholders/TODO/mock/`# type: ignore` in `core/` or `services/`
+VERIFIED FACTS:
+  - `services.api.openapi_export.dump_openapi()` produces valid OpenAPI YAML with all 31 matrix operations.
+  - `core/abh_core` (192 <= 300) and `services/notary` (135 <= 150) are within line budgets.
+UNVERIFIED / ASSUMED:
+  - All PostgreSQL-dependent tests (`append()` 50-thread concurrency, `R01`–`R30` SQL paths, notary loop, `tests/contract/`, `tests/security/`, `tests/e2e/`) remain pending until PostgreSQL / Manas's `integration` stack & VM are available.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - Ready for Manas's M1 merge to `integration` and PR review of `work/henil` -> `integration`.
+NEXT: Sync `work/henil` with `origin/integration` once Manas lands M1, run `make check-fast` / `make openapi`, and prepare PR to `integration`.
+
