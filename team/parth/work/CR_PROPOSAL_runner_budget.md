@@ -5,17 +5,18 @@ Requested by Manas (2026-11-26): "Do a reduction pass first ... If it cannot fit
 request with the measured count and why the remaining lines are necessary."
 
 ## Counting rule used
-docs/05 says "non-test, non-generated lines; make check-fast prints the count". check-fast does not print a
-count yet, so two counts are given, both measured by Python `ast` on the commit of this proposal:
-code lines = no blank lines, no `#` comment lines, no docstrings; physical = every line.
+Official since PR #22: `make budget-report` (db/init/report_budgets.py, also run by `make check-fast`) counts
+lines covered by Python tokens, excluding comments, blank lines and docstrings. On integration 9c8675b it
+prints `services/runner: 850/800 OVER`; its per-file counts equal the ones below. Physical lines are given
+for information only.
 
 ## Reduction pass (done)
 - Removed the `DockerWork` Protocol: one implementation (`DockerOps`), so an abstraction with one user
   (docs/05 style limit); reconcile.py now types against `DockerOps` imported for type checking only.
 - Removed `Template.title/description/sizes`: validated but never read after parsing (validation kept).
 - Searched for unused module-level names in services/runner against services/ and tests/: none.
-Result: 857 -> 850 code lines (1191 -> 1185 physical). Behaviour unchanged: 50 local tests pass; the 14
-real-PostgreSQL tests must be re-run on this commit because reconcile.py changed.
+Result: 857 -> 850 code lines (1191 -> 1185 physical). Behaviour unchanged: Manas reran 7f86459 on his host,
+50 pure tests passed and the 14 real-PostgreSQL tests passed on a fresh disposable database (his handoff).
 
 ## Measured now (code / physical)
 reconcile 131/171 · collect 125/166 · launch 119/175 · jobs 98/125 · objects 85/107 · templates 83/113 ·
@@ -33,9 +34,9 @@ metrics 50/80 · main 47/63 · storage 46/78 · state 38/58 · exec_policy 28/48
 Further cuts would remove one of these behaviours or a refusal path; none is optional in docs/04-08.
 
 ## Request
-Raise the services/runner ceiling from 800 to 1000 code lines (counting rule above, until check-fast defines
-its own), to hold the current 850 plus B6 file analysis (analyzer run, rule-match parse, verdict, detonation,
-cleanup check). The 150-line allowance for B6 is an ESTIMATE from B5's measured 133 lines for a comparable job
-path; my earlier B5 estimate (60) was wrong, so the B6 slice will be measured and reported at its commit.
+Raise the services/runner ceiling from 800 to 1000 lines as counted by `make budget-report`, to hold the
+current 850 plus B6 file analysis (analyzer run, rule-match parse, verdict, detonation, cleanup check).
+The 150-line allowance for B6 is an ESTIMATE from B5's measured 133 lines for a comparable job path; my
+earlier B5 estimate (60) was wrong, so the B6 slice will be measured and reported at its commit.
 B7 (ai_scan) is not included: it is blocked by the O9 change request, which should carry its own budget.
 Alternative for the team: keep 800 and drop or shrink B6 (docs/02 cut order already allows cutting detonation).

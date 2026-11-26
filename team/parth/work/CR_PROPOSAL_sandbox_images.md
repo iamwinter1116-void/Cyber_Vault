@@ -41,11 +41,13 @@ PID 1 must exit on SIGTERM in every container. Reason, from the code: the runner
 `container.stop(timeout=10)` per container (objects.py), and the API stop route (services/api/routes/envs.py)
 writes only desired_state and an audit record, no activity event, so an analyst sees the stop only when the
 runner finishes it. On Linux a PID 1 without a SIGTERM handler ignores SIGTERM; `sleep infinity` and a plain
-`http.server` install none, so each stop would wait the full 10 s (about 20 s for app-target), beyond Bhavya's
-T-ISO-05 5 s control check. Proposal: the target app installs a SIGTERM handler; toolbox's command is a shell
-loop with `trap 'exit 0' TERM`. Not proposed: Docker's `init` option, because (as I understand Docker; to be
-confirmed on the host) it places the daemon's init binary into the container, an extra mount the section 8
-profile does not list. Whether runsc applies the same PID 1 rule is UNVERIFIED (step 7).
+`http.server` install none. EXPECTED, NOT MEASURED: each stop would then wait the full 10 s (about 20 s for
+app-target), beyond Bhavya's T-ISO-05 5 s control check. This stop-time figure stays UNVERIFIED until the host
+test measures it (section 7 step 3; team/parth/work/HOST_TEST_PLAN.md step 4), including whether runsc applies
+the same PID 1 rule. Proposal: the target app installs a SIGTERM handler; toolbox's command is a shell loop with
+`trap 'exit 0' TERM`. Not proposed: Docker's `init` option, because (as I understand Docker; to be confirmed on
+the host) it places the daemon's init binary into the container, an extra mount the section 8 profile does not
+list.
 
 Runner Python packages: the lock (evidence/VERSIONS.lock) has `docker==7.2.0`, `psycopg==3.3.9`,
 `psycopg-binary==3.3.9`, `psycopg-pool==3.3.3`, `pydantic-settings==2.16.3`, `pyyaml==6.0.4`. Installing them
