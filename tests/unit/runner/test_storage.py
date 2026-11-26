@@ -65,6 +65,23 @@ class ImageFiles(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in Path(d).iterdir()), ["keep.img"])
             storage.remove_image(d, ENV.id)  # already gone: no error
 
+    def test_image_env_ids_finds_orphan_images_only(self) -> None:
+        other = "a3c1d9e2-5f60-4a7b-8c9d-0e1f2a3b4c5d"
+        with tempfile.TemporaryDirectory() as d:
+            for name in (f"{ENV.id}.img", f"{other}.img.tmp", f"{ENV.id.upper()}.img", "notes.img", "abc.txt",
+                         f"{other}.imgx"):
+                (Path(d) / name).write_bytes(b"x")
+            (Path(d) / "5b1e2d3c-0000-4000-8000-000000000000.img").mkdir()  # a directory is never an image
+            self.assertEqual(storage.image_env_ids(d), {ENV.id, other})
+        self.assertEqual(storage.image_env_ids(str(Path(d) / "gone")), set())
+
+    def test_canonical_id(self) -> None:
+        from services.runner.launch import canonical_id
+
+        self.assertEqual(canonical_id(ENV.id), ENV.id)
+        for bad in (ENV.id.upper(), ENV.id.replace("-", ""), "", "x", None, 7, f"{{{ENV.id}}}", f" {ENV.id}"):
+            self.assertIsNone(canonical_id(bad))
+
     def test_make_image_keeps_an_existing_image(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             img = Path(d) / f"{ENV.id}.img"

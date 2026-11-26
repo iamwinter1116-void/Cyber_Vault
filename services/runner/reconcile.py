@@ -54,6 +54,7 @@ class DockerWork(Protocol):
     def stop(self, env: EnvRow) -> None: ...
     def destroy(self, env_id: str) -> None: ...
     def labelled_env_ids(self) -> set[str]: ...
+    def remove_unowned(self) -> int: ...
 
 
 @dataclass(frozen=True)
@@ -155,7 +156,13 @@ def reconcile_once(pool: Pool, ops: DockerWork) -> int:
 
 
 def reap(pool: Pool, ops: DockerWork) -> set[str]:
-    """Remove labelled objects whose env row is destroyed or missing (docs/08 section 3, every 30 s)."""
+    """Remove labelled objects whose env row is destroyed or missing (docs/08 section 3, every 30 s).
+
+    Also: managed objects with no valid abh.env_id (removed outright) and V1 image files whose env is not live.
+    A live row (requested, provisioning, running, stopped, failed) keeps its objects and image."""
+    unowned = ops.remove_unowned()
+    if unowned:
+        log.warning("reaper removed %d abh.managed objects without a valid abh.env_id", unowned)
     labelled = ops.labelled_env_ids()
     if not labelled:
         return set()

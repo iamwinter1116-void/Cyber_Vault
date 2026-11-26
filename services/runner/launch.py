@@ -8,6 +8,7 @@ forbids ("pull policy never"), so ``launch`` calls ``containers.create()`` and t
 from __future__ import annotations
 
 import re
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -87,6 +88,14 @@ def volume_name(env: EnvRow) -> str:
 
 def labels(env: EnvRow) -> dict[str, str]:
     return {"abh.managed": "true", "abh.env_id": env.id, "abh.team_id": env.team_id, "abh.template": env.template}
+
+
+def canonical_id(value: object) -> str | None:
+    """The env id if ``value`` is a canonical lower-case UUID string (as PostgreSQL prints uuid), else None."""
+    try:
+        return value if isinstance(value, str) and str(uuid.UUID(value)) == value else None
+    except ValueError:
+        return None
 
 
 def _check(env: EnvRow, spec: ContainerSpec, workspace: Mapping[str, object]) -> None:

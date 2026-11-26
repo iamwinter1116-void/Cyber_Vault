@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-import uuid
 from pathlib import Path
 
-from services.runner.launch import WORKSPACE, EnvRow, labels, volume_name
+from services.runner.launch import WORKSPACE, EnvRow, canonical_id, labels, volume_name
 
 METHODS = ("V1", "V2", "V3")
 CHOSEN_METHOD: str | None = None  # set from B0 check 8 output, by commit, once it has run on the demo host
@@ -61,9 +60,19 @@ def make_image(volume_dir: str, env: EnvRow) -> None:
     os.replace(tmp, final)
 
 
+def image_env_ids(volume_dir: str) -> set[str]:
+    """Env ids named by V1 image files (<id>.img, <id>.img.tmp), so the reaper also finds an image whose volume
+    was never created (runner crash between make_image and volumes.create). Other files are never touched."""
+    root = Path(volume_dir)
+    if not root.is_dir():
+        return set()
+    names = (p.name.removesuffix(".tmp") for p in root.iterdir() if p.is_file())
+    return {i for n in names if n.endswith(".img") and (i := canonical_id(n.removesuffix(".img"))) is not None}
+
+
 def remove_image(volume_dir: str, env_id: str) -> None:
     """env_id may come from a Docker label (reaper), so only a canonical UUID may name a file."""
-    if str(uuid.UUID(env_id)) != env_id:
+    if canonical_id(env_id) is None:
         raise ValueError(f"not a canonical env id: {env_id!r}")
     for p in (Path(volume_dir) / f"{env_id}.img", Path(volume_dir) / f"{env_id}.img.tmp"):
         p.unlink(missing_ok=True)

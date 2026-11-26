@@ -11,7 +11,16 @@ from typing import Any
 import docker.errors
 
 from services.runner import storage
-from services.runner.launch import EnvRow, RuntimeChoice, choose_runtime, container_name, launch, net_name, volume_name
+from services.runner.launch import (
+    EnvRow,
+    RuntimeChoice,
+    canonical_id,
+    choose_runtime,
+    container_name,
+    launch,
+    net_name,
+    volume_name,
+)
 from services.runner.net import create_network
 from services.runner.templates import container_specs, load_template
 
@@ -62,13 +71,30 @@ class DockerOps:
         storage.remove_image(self.volume_dir, env_id)
 
     def labelled_env_ids(self) -> set[str]:
-        """abh.env_id of every container, network and volume labelled abh.managed=true."""
+        """Canonical abh.env_id of every abh.managed=true object, plus env ids named by V1 image files."""
+        ids = {i for _, lbl, _ in self._managed() if (i := canonical_id(lbl.get("abh.env_id"))) is not None}
+        return ids | storage.image_env_ids(self.volume_dir)
+
+    def remove_unowned(self) -> int:
+        """abh.managed=true objects without a canonical abh.env_id match no env row ("missing" in the section 8
+        lifetime rule), so they are removed directly. Containers go first so networks and volumes are free."""
+        removed = 0
+        for kind, lbl, obj in self._managed():
+            if canonical_id(lbl.get("abh.env_id")) is not None:
+                continue
+            if kind == "network":
+                obj.remove()
+            else:
+                obj.remove(force=True)
+            removed += 1
+        return removed
+
+    def _managed(self) -> list[tuple[str, dict[str, str], Any]]:
         flt = {"label": MANAGED}
-        ids = {str(c.labels.get("abh.env_id", "")) for c in self.client.containers.list(all=True, filters=flt)}
-        for coll in (self.client.networks, self.client.volumes):
-            ids |= {str((o.attrs.get("Labels") or {}).get("abh.env_id", "")) for o in coll.list(filters=flt)}
-        ids.discard("")
-        return ids
+        out = [("container", dict(c.labels), c) for c in self.client.containers.list(all=True, filters=flt)]
+        for kind, coll in (("network", self.client.networks), ("volume", self.client.volumes)):
+            out += [(kind, dict(o.attrs.get("Labels") or {}), o) for o in coll.list(filters=flt)]
+        return out
 
     def _by_env(self, env_id: str) -> list[Any]:
         return list(self.client.containers.list(all=True, filters={"label": f"abh.env_id={env_id}"}))
