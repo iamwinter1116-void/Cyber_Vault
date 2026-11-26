@@ -204,3 +204,12 @@ UNVERIFIED: Full stack startup, owner service container images, TypeScript check
 DEGRADED PATHS: none.
 NEW DEPENDENCIES: none installed.
 OPEN RISKS / NEXT OWNERS: Bhavya must record missing allowlisted package versions (`psycopg-binary`, `docker`, `pydantic-settings` and service build dependencies) in `evidence/VERSIONS.lock` before installation. Henil owns the O9 stub-named schema field. Owners must supply actual service image/build definitions before M1 phase 2 Compose wiring.
+
+## 2026-11-26 · Parth B5 integration review
+
+TASK: Review Parth `f755530` and PR #12, then refresh the implementation scorecard.
+STATUS: merged as an incomplete local B5 slice at integration `20324e0`; no objective or gate accepted.
+COMMANDS RUN (Windows Python 3.11, detached Parth worktree): explicit `python -m pytest` of six pure runner modules -> 50 passed, exit 0; `python -m compileall -q services/runner tests/unit/runner` -> 0; `git diff --check` -> 0. `unittest discover` failed due this Python installation resolving a different `tests` package, so the explicit pytest invocation was used. No PostgreSQL or Docker exec call was run.
+VERIFIED FACTS: PR #12 touched only Parth-owned code/tests and his handoff. The live PostgreSQL suite requires a disposable database and explicit opt-in, and is excluded from ordinary test collection. The runner's 857/800 code-line overage is documented by Parth; B6 remains constrained. `team/manas/work/PROGRESS.md` now counts B5, giving 16/33 = 48.5% integrated implementation coverage.
+UNVERIFIED: 14 live PostgreSQL tests, Docker exec behavior, gVisor, isolation/resource tests, ruff/mypy, and the proposed sandbox image CR. G0–G4 and O1–O9 remain unaccepted.
+NEXT: Bhavya's dependency log and the four-person sandbox-image decision are needed before those dependent tests and image builds.
