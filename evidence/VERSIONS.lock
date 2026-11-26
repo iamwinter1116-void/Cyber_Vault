@@ -5,8 +5,6 @@ pyyaml==6.0.4 | pypi_latest=6.0.4 (2026-11-20T23:34:39.807190Z) | maintainer=Kir
 pytest==8.4.2 | pypi_latest=9.2.0 (2026-10-27T21:30:19.131148Z) | maintainer=Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt
 hypothesis==6.170.17 | pypi_latest=6.170.17 (2026-11-20T07:45:40.394025Z) | maintainer="David R. MacIver and Zac Hatfield-Dodds" <david@drmaciver.com>
 httpx==0.28.1 | pypi_latest=0.28.1 (2024-12-06T15:37:21.509172Z) | maintainer=Tom Christie <tom@tomchristie.com>
-psycopg==3.3.9 | pypi_latest=3.3.9 (2026-11-12T08:58:18.454897Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com>
-psycopg-binary==3.3.9 | pypi_latest=3.3.9 (2026-11-12T08:58:23.421990Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com>
-psycopg-pool==3.3.3 | pypi_latest=3.3.3 (2026-09-22T15:53:23.712445Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com>
+psycopg==3.3.9 | pypi_latest=3.3.9 (2026-11-12T08:58:18.454897Z) | maintainer=Daniele Varrazzo <daniele.varrazzo@gmail.com> | extras=binary,pool (psycopg-binary==3.3.9, psycopg-pool==3.3.3 per docs/03_CONTEXT.md s6)
 docker==7.2.0 | pypi_latest=7.2.0 (2026-07-09T14:53:45.224223Z) | maintainer=Docker Inc. (PyPI package docker)
 pydantic-settings==2.16.3 | pypi_latest=2.16.3 (2026-11-13T11:18:28.730227Z) | maintainer=Samuel Colvin, Eric Jolibois, Hasan Ramezani

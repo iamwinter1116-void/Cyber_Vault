@@ -58,15 +58,33 @@ def test_t_mon_04_last_event_id_resumes_without_loss(stack_url: str) -> None:
     """T-MON-04: Disconnect, generate 10 events, reconnect with Last-Event-ID -> all 10 once, in order."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "mon-04-alpha", size="S")
-    existing = ca.get(f"{API_BASE}/events?limit=1").json()["items"]
-    last_id = existing[0]["id"] if existing else 0
+    after = 0
+    while True:
+        batch = ca.get(f"{API_BASE}/events?limit=200&after_id={after}").json()["items"]
+        if not batch:
+            break
+        after = max(e["id"] for e in batch)
+        if len(batch) < 200:
+            break
+    last_id = after
 
     for i in range(10):
         r = ca.post(f"{API_BASE}/envs/{env_a['id']}/exec", headers={"X-CSRF-Token": csrfa}, json={"command": f"echo {i}"})
         assert r.status_code == 202
 
+    expected_ids: list[int] = []
+    wait_deadline = time.monotonic() + 30.0
+    while time.monotonic() < wait_deadline:
+        new_events = ca.get(f"{API_BASE}/events?limit=200&after_id={last_id}").json()["items"]
+        expected_ids = sorted(e["id"] for e in new_events)
+        if len(expected_ids) >= 10:
+            break
+        time.sleep(0.5)
+    assert len(expected_ids) >= 10, f"Only {len(expected_ids)} new events created after {last_id}"
+    expected_ids = expected_ids[:10]
+
     seen_ids: list[int] = []
-    deadline = time.monotonic() + 20.0
+    deadline = time.monotonic() + 15.0
     with ca.stream("GET", f"{API_BASE}/stream", headers={"Last-Event-ID": str(last_id)}) as stream:
         for line in stream.iter_lines():
             if time.monotonic() > deadline:
@@ -77,6 +95,4 @@ def test_t_mon_04_last_event_id_resumes_without_loss(stack_url: str) -> None:
                     seen_ids.append(eid)
                     if len(seen_ids) >= 10:
                         break
-    assert len(seen_ids) == 10, f"Expected 10 replayed events, got {len(seen_ids)}: {seen_ids}"
-    assert len(set(seen_ids)) == 10, f"Duplicate event IDs replayed: {seen_ids}"
-    assert seen_ids == sorted(seen_ids), f"Events out of order: {seen_ids}"
+    assert seen_ids == expected_ids, f"Expected exact ordered replay {expected_ids}, got {seen_ids}"

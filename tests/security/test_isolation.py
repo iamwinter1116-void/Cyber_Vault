@@ -65,17 +65,19 @@ def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: 
 
 
 def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
-    """T-ISO-04: Sandbox cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443)."""
+    """T-ISO-04: Sandbox cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443); detonator is loopback-only."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-04-alpha")
-    lan_ip = os.environ.get("ABH_HOST_LAN_IP", "127.0.0.1")
+    lan_ip = os.environ.get("ABH_HOST_LAN_IP", "")
+    assert lan_ip and lan_ip != "127.0.0.1", "ABH_HOST_LAN_IP must be set to the host LAN IP (not 127.0.0.1)"
     gw_ips = {
-        net["Gateway"]
+        net["Gateway"] or (net["IPAddress"].rsplit(".", 1)[0] + ".1")
         for c in docker_managed_inspect()
         if c["Config"]["Labels"].get("abh.env_id") == env_a["id"]
         for net in c["NetworkSettings"]["Networks"].values()
-        if net.get("Gateway")
+        if net.get("Gateway") or net.get("IPAddress")
     }
+    assert gw_ips, "No container gateway/subnet IP found to test in T-ISO-04"
     targets = [(gw, p) for gw in gw_ips for p in (443, 5432, 8000)] + [
         (lan_ip, 443), (lan_ip, 5432), (lan_ip, 8000), ("1.1.1.1", 53), ("1.1.1.1", 443),
     ]
@@ -83,6 +85,27 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
         job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {host} {port} 3")
         out = json.loads(job["result"]["output"].strip().splitlines()[-1])
         assert out["reachable"] is False, f"Egress/control-plane reachable at {host}:{port}"
+
+    r_det = ca.post(
+        f"{API_BASE}/files",
+        headers={"X-CSRF-Token": csrfa},
+        files={"file": ("ifcheck.sh", b"#!/bin/sh\nls -1 /sys/class/net\n", "text/x-shellscript")},
+        data={"detonate": "true"},
+    )
+    assert r_det.status_code == 202
+    import time
+    jid = r_det.json()["id"]
+    for _ in range(90):
+        jr = ca.get(f"{API_BASE}/jobs/{jid}").json()
+        if jr["status"] in ("done", "timeout", "error"):
+            det = jr["result"]["detonation"]
+            assert det is not None and det["exit_code"] == 0
+            ifaces = [line.strip() for line in det["output_tail"].splitlines() if line.strip()]
+            assert ifaces == ["lo"], f"Detonator has non-loopback interfaces: {ifaces}"
+            break
+        time.sleep(1.0)
+    else:
+        pytest.fail("Detonator interface check job did not finish")
 
 
 def test_t_iso_05_cross_team_api_returns_404(stack_url: str) -> None:
@@ -115,7 +138,8 @@ def test_t_iso_06_env_mounts_socket_and_flags(stack_url: str) -> None:
     info = json.loads(env_job["result"]["output"].strip().splitlines()[-1])
     assert not any(v.startswith("ABH_") for v in info["env_vars"])
     assert info["uid"] == 1000
-    assert not any("docker.sock" in str(m) for m in info.get("mounts", []))
+    assert "mounts" in info and isinstance(info["mounts"], list), f"probe_env missing mounts: {info}"
+    assert not any("docker.sock" in str(m) for m in info["mounts"])
     sock_check = exec_in_env(ca, csrfa, env_a["id"], "test -e /var/run/docker.sock")
     assert sock_check["result"]["exit_code"] != 0
 

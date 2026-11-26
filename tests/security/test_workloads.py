@@ -68,7 +68,9 @@ def test_t_wl_02_file_analysis_eicar_benign_and_cleanup(stack_url: str) -> None:
     assert r_det.status_code == 202
     j_det = _wait_job(ca, r_det.json()["id"])
     det = j_det["result"]["detonation"]
-    assert det is not None and (det["exit_code"] != 0 or '"reachable": false' in det.get("output_tail", "").lower())
+    assert det is not None and det["exit_code"] == 0, f"Detonator probe_connect failed to run: {det}"
+    det_out = json.loads(det["output_tail"].strip().splitlines()[-1])
+    assert det_out["reachable"] is False, f"Detonator unexpectedly reached network: {det_out}"
 
     sha = j_mal["result"]["sha256"]
     mode = subprocess.run(["docker", "compose", "exec", "-T", "api", "stat", "-c", "%a", f"/quarantine/{sha}"], capture_output=True, text=True, check=False)
