@@ -9,8 +9,9 @@ from core.abh_core.db import create_pool
 from core.abh_core.settings import Settings
 from fastapi import FastAPI
 
+from services.api.authz import verify_route_coverage
 from services.api.middleware import install_middleware_and_handlers
-from services.api.routes import auth, health
+from services.api.routes import auth, health, teams, templates, users
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -33,6 +34,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_middleware_and_handlers(app)
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
+    app.include_router(users.router, prefix="/api/v1")
+    app.include_router(teams.router, prefix="/api/v1")
+    app.include_router(templates.router, prefix="/api/v1")
+    verify_route_coverage(app, require_all=False)
     return app
 
 
