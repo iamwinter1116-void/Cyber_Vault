@@ -254,3 +254,64 @@ STANDING OPEN ITEMS (carry forward until closed by real evidence):
      docker 7.2.0, psycopg 3.3.9, psycopg-binary 3.3.9, psycopg-pool 3.3.3, PyYAML 6.0.4 in evidence/VERSIONS.lock.
   5. Blocked: B7 ai_scan target until the four-person O9 change request.
 ```
+
+## 2026-11-26 · B4 local slice + failed-env recovery rule · commit 612c620
+
+```
+TASK: Manas's next-actions message (Parth items 1-6). Plan first: team/parth/work/PLAN_B4_B6.md.
+STATUS: partial. B4 code + pure tests done locally; DB cases written, not run; no Docker call has run.
+BASE: work/parth e67a81b (already contains integration 26a71e0; origin/integration unchanged at 26a71e0 on fetch).
+CHANGED:
+  services/runner/metrics.py (new, pure): stats parsing (memory = cgroup total `memory_stats.usage`, no cache
+    subtraction, per R-04; CPU = docker CLI delta formula); per-env sums; cpu_pct of the env's own limit;
+    04 section 6 thresholds (cpu > 95 % x5, mem > 90 % x3, storage > 90 % latest; "above" is strict);
+    `df -P -k` parse; abh_metric payload exactly {env_id, ...MetricSample}, compact; oom/die classify.
+  services/runner/collect.py (new): insert + pg_notify + alerts in one transaction; throttle read from
+    activity_event (one per env per kind per 5 min, survives restart); prune > 1 h; oom -> env.oom_killed
+    audit (detail {mem_limit_mb}, as contracts/audit_vectors.json) + alert.oom_killed [critical], throttled
+    together; die -> inspect State.OOMKilled, then failed only if the row is running/running/unexpired
+    (runner stop, destroy, expiry, provisioning exits are ignored); events reconnect from last event second.
+    Stats calls run in 8 threads (stats(stream=False) waits ~2 engine cycles each; interpretation: docs/08
+    says "one-shot", but one_shot=True leaves precpu_stats empty, so no CPU delta).
+  services/runner/main.py: starts events and metrics threads, each with its own docker client.
+  services/runner/reconcile.py: LIVE_SQL excludes failed -> RECOVERY RULE for standing gap 2: a failed row is
+    terminal, so the reaper retries destroy() for its leftovers every 30 s until none remain; row stays failed.
+    Helpers env_row/actor/event made public (two modules use them); ENV_COLS shared.
+  services/runner/launch.py, objects.py: MANAGED label constant moved to launch.py.
+  tests/unit/runner/test_metrics.py (new, 12 tests). tests/unit/runner/test_reconcile_pg.py: shared PgFixture;
+    liveness test now asserts failed is excluded; new CollectSQL class (4 tests) -> module now 10 tests.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib only, nothing installed):
+  python -m unittest tests.unit.runner.test_launch tests.unit.runner.test_templates tests.unit.runner.test_state
+    tests.unit.runner.test_storage tests.unit.runner.test_metrics -> "Ran 44 tests in 0.060s OK", exit 0
+  python -m compileall -q services/runner tests/unit/runner -> exit 0; committed blobs 0 CR bytes.
+  NOT RUN: ruff, mypy (not installed); test_reconcile_pg.py (needs DSNs + deps; refuses without them).
+VERIFIED FACTS: docker-py 7.2.0 source (raw GitHub tag 7.2.0): APIClient.stats(container, decode, stream,
+  one_shot), events(since, until, filters, decode), Container.exec_run(cmd, ..., user, ...) -> (exit_code, output).
+  Henil's monitor.py (a5e74d2) forwards the abh_metric payload verbatim and looks up team_id itself, so the
+  payload carries no team_id (04 section 6 shape).
+UNVERIFIED / ASSUMED: Engine stats/event field names under runsc (cpu_stats, memory_stats.usage, pids_stats,
+  Actor.Attributes with labels, exitCode); whether runsc emits an oom event at all (die + OOMKilled is the
+  fallback); df present in images; st_blocks for V1 storage; stats latency with many containers.
+BUDGET: 1009 physical / 723 code lines of 800 (journal entry added). Over under a physical rule.
+FOR MANAS: PG command unchanged, now expects 10 tests and also needs `docker` importable (no daemon used):
+  python -m unittest -v tests.unit.runner.test_reconcile_pg
+FOR BHAVYA (probe contract proposal; no image is built until agreed). In the app-target `toolbox`, each on
+  PATH, run via exec as uid 1000, last stdout line one JSON object in Python json.dumps default style
+  (", " and ": " separators - test_workloads.py matches '"reachable": false' literally); exit 0 when the probe
+  ran, non-zero when it could not run:
+  probe_connect <host> <port> <timeout_s> -> {"reachable": bool, "host": str, "port": int, "error": str|null}
+  probe_icmp <ip> <timeout_s>             -> {"reachable": bool, "sent": bool, "error": str|null}
+  probe_dns <name> <timeout_s>            -> {"resolved": bool, "addresses": [str], "error": str|null}
+  probe_env                               -> {"env_vars": [names only], "uid": int, "gid": int, "kernel_release": str}
+  probe_write <path>                      -> {"ok": bool, "path": str, "error": str|null}
+  plus workload commands her tests already use: mem_hog <mb>, cpu_burn <seconds>, fork_bomb, curl.
+  QUESTION for her: with cap_drop ALL, ICMP may fail to SEND (no raw socket); "sent": false must not count as
+  isolation evidence, so T-ISO-03 should require sent=true or record it as not testable.
+STANDING OPEN ITEMS:
+  1. Interpretation: each container gets the env's full pids_limit (unchanged).
+  2. Gap now has a rule (failed = non-live for the reaper); real removal still unproven on Linux.
+  3. Unverified: every Docker call (launch, objects, collect); B0 never run on Linux.
+  4. Pending: test_reconcile_pg.py (10 tests) after Bhavya's lock entries.
+  5. Blocked: B7 ai_scan until the four-person O9 CR.
+NEXT: B5 exec jobs (~60 code lines, fits a code-line rule); B6 local only after the counting rule is fixed.
+```
