@@ -20,7 +20,7 @@ cleanup() {
 }
 trap cleanup EXIT
 # res PASS|FAIL <check> <name> <observed value>; run <cmd...> records the command, output and exit code
-res() { log "$1 $2 $3: $4"; [ "$1" = PASS ] && return 0; FAILED=1; [ "$2" -gt 5 ] || exit 1; }
+res() { log "$1 $2 $3: $4"; [ "$1" = PASS ] && return 0; FAILED=1; [ "${2%%[a-z]*}" -gt 5 ] || exit 1; } # 7a -> 7
 run() { rc=0; "$@" >"$TMP/o" 2>&1 || rc=$?
   { printf '\n```\n$ %s\n' "$*"; cat "$TMP/o"; printf 'exit=%s\n```\n' "$rc"; } >>"$OUT"; return "$rc"; }
 sbx() { docker run --runtime=runsc --label abh.preflight=true "$@"; }
@@ -36,7 +36,7 @@ esac
 F='OS={{.OperatingSystem}} Server={{.ServerVersion}} Cgroup={{.CgroupVersion}} Driver={{.CgroupDriver}} Storage={{.Driver}} Status={{.DriverStatus}} Root={{.DockerRootDir}} Runtimes={{range $k, $v := .Runtimes}}{{$k}} {{end}}'
 INFO=$(docker info --format "$F" 2>&1) || res FAIL 2 docker "docker info failed: $INFO"
 case "$INFO" in *"Docker Desktop"*) res FAIL 2 docker "Docker Desktop: $INFO" ;; *) res PASS 2 docker "$INFO" ;; esac
-RV=$(runsc --version 2>&1 | head -1) || res FAIL 3 runsc "runsc --version failed: $RV"
+RV=$(runsc --version 2>&1) || res FAIL 3 runsc "runsc --version failed: $RV"; RV=$(printf '%s\n' "$RV" | head -1)
 case "$INFO" in *"Runtimes="*runsc*) res PASS 3 runsc "$RV; registered" ;; *) res FAIL 3 runsc "not under Runtimes" ;; esac
 run docker run --rm --runtime=runsc hello-world && res PASS 4 hello-world "exit 0" || res FAIL 4 hello-world "see output"
 docker image inspect "$IMG" >/dev/null 2>&1 || run docker pull "$IMG" || res FAIL 5 kernel "cannot get $IMG"
