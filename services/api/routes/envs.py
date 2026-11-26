@@ -7,10 +7,10 @@ from typing import Annotated, Literal, cast
 from uuid import UUID
 
 import psycopg
-from core.abh_core.audit import append as audit_append
-from core.abh_core.settings import Settings
 from fastapi import APIRouter, Depends, Query
 
+from core.abh_core.audit import append as audit_append
+from core.abh_core.settings import Settings
 from services.api.authz import ScopedAuth, authorize, record_denied
 from services.api.middleware import ApiError
 from services.api.quota import ENV_COLS, create_env_with_quota, row_to_env
@@ -79,22 +79,39 @@ def list_envs(
 def create_env(body: EnvCreate, auth: Annotated[ScopedAuth, Depends(authorize("R12"))]) -> EnvOut:
     """Create an app-target environment with quota admission and audit."""
     ttl = body.ttl_minutes if body.ttl_minutes is not None else 60
-    with auth.ctx.transaction() as conn:
-        env = create_env_with_quota(
-            conn, auth, Settings(), name=body.name, template=body.template, size=body.size, ttl_minutes=ttl
-        )
-        audit_append(
-            conn,
-            actor=auth.ctx.actor,
-            action="env.create",
-            target_type="env",
-            target_id=str(env.id),
-            outcome="success",
-            ip=auth.ctx.ip,
-            request_id=auth.ctx.request_id,
-            detail={"template": env.template, "size": env.size},
-        )
-        return env
+    try:
+        with auth.ctx.transaction() as conn:
+            env = create_env_with_quota(
+                conn, auth, Settings(), name=body.name, template=body.template, size=body.size, ttl_minutes=ttl
+            )
+            audit_append(
+                conn,
+                actor=auth.ctx.actor,
+                action="env.create",
+                target_type="env",
+                target_id=str(env.id),
+                outcome="success",
+                ip=auth.ctx.ip,
+                request_id=auth.ctx.request_id,
+                detail={"template": env.template, "size": env.size},
+            )
+            return env
+    except ApiError as exc:
+        denial_reason = {
+            "QUOTA_EXCEEDED": "quota_exceeded",
+            "CONFLICT": "duplicate_name",
+        }.get(exc.code)
+        if denial_reason is not None:
+            # The quota transaction held the team row lock. Record the denial
+            # only after rollback so its alert FK insert cannot deadlock.
+            record_denied(
+                auth.ctx,
+                auth.rule,
+                target_type="env",
+                target_id="",
+                reason=denial_reason,
+            )
+        raise
 
 
 @router.get("/{env_id}", response_model=EnvOut)

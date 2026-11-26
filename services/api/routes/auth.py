@@ -7,10 +7,10 @@ from typing import Annotated, Literal, cast
 from uuid import UUID
 
 import psycopg
-from core.abh_core.audit import Actor
-from core.abh_core.audit import append as audit_append
 from fastapi import APIRouter, Depends, Request, Response
 
+from core.abh_core.audit import Actor
+from core.abh_core.audit import append as audit_append
 from services.api.deps import (
     SESSION_COOKIE,
     AuthContext,

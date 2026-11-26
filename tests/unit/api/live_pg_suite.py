@@ -17,9 +17,10 @@ from uuid import UUID
 
 import psycopg
 import pytest
-from core.abh_core.settings import Settings
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
+
+from core.abh_core.settings import Settings
 from services.api.main import create_app
 from services.api.security import hash_password
 from services.notary.__main__ import run_tick
@@ -72,7 +73,9 @@ def test_pg_denied_login_lockout_quota_and_notary(tmp_path: Path) -> None:
         base_seq = int(cast(int, (cur.fetchone() or (0,))[0]))
 
     app = create_app(Settings(db_dsn=api_dsn, witness_path=str(tmp_path / "witness.ndjson")))
-    with TestClient(app) as client:
+    # The API marks session cookies Secure; use HTTPS so the test client sends
+    # the cookie back on the authenticated follow-up requests.
+    with TestClient(app, base_url="https://testserver") as client:
         # 1. Unknown email -> 401 AND denied audit row committed as abh_api
         r_unknown = client.post("/api/v1/auth/login", json={"email": f"nobody.{tag}@abhedya.local", "password": "wrong"})
         assert r_unknown.status_code == 401

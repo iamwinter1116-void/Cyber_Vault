@@ -11,7 +11,6 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-
 SECRET_DIR = Path(__file__).resolve().parents[2] / "secrets"
 DB_NAMES = ("db_owner", "abh_api", "abh_runner", "abh_notary")
 

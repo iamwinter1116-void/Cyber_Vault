@@ -1,0 +1,1649 @@
+openapi: 3.1.0
+info:
+  title: ABHEDYA API
+  version: 1.0.0
+paths:
+  /api/v1/healthz:
+    get:
+      tags:
+      - health
+      summary: Healthz
+      description: Return service status and live database connectivity.
+      operationId: healthz_api_v1_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthzOut'
+  /api/v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Login
+      description: Authenticate user with Argon2id, lockout, session cookie, and CSRF
+        token.
+      operationId: login_api_v1_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Logout
+      description: Delete current session and record auth.logout atomically.
+      operationId: logout_api_v1_auth_logout_post
+      responses:
+        '204':
+          description: Successful Response
+  /api/v1/auth/me:
+    get:
+      tags:
+      - auth
+      summary: Me
+      description: Return the authenticated user and current CSRF token.
+      operationId: me_api_v1_auth_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionOut'
+  /api/v1/users:
+    get:
+      tags:
+      - users
+      summary: List Users
+      description: List users in caller's scope (all for admin/auditor, own team for
+        team_lead).
+      operationId: list_users_api_v1_users_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Users Api V1 Users Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - users
+      summary: Create User
+      description: Create a user and record user.create atomically.
+      operationId: create_user_api_v1_users_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users/{user_id}:
+    patch:
+      tags:
+      - users
+      summary: Update User
+      description: Update user role/team/disabled/password enforcing BR1 and BR2.
+      operationId: update_user_api_v1_users__user_id__patch
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/teams:
+    get:
+      tags:
+      - teams
+      summary: List Teams
+      description: List teams and live usage in caller's scope.
+      operationId: list_teams_api_v1_teams_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Teams Api V1 Teams Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - teams
+      summary: Create Team
+      description: Create a team with optional quotas and record team.create atomically.
+      operationId: create_team_api_v1_teams_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/teams/{team_id}:
+    patch:
+      tags:
+      - teams
+      summary: Update Team Quota
+      description: Update team quota fields and record team.quota_update atomically.
+      operationId: update_team_quota_api_v1_teams__team_id__patch
+      parameters:
+      - name: team_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Team Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamQuotaUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/templates:
+    get:
+      tags:
+      - templates
+      summary: List Templates
+      description: Return the allowlisted environment templates.
+      operationId: list_templates_api_v1_templates_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    $ref: '#/components/schemas/TemplateOut'
+                  type: array
+                type: object
+                title: Response List Templates Api V1 Templates Get
+  /api/v1/envs:
+    get:
+      tags:
+      - envs
+      summary: List Envs
+      description: List environments in caller's scope.
+      operationId: list_envs_api_v1_envs_get
+      parameters:
+      - name: team_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Team Id
+      - name: state
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: State
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Envs Api V1 Envs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - envs
+      summary: Create Env
+      description: Create an app-target environment with quota admission and audit.
+      operationId: create_env_api_v1_envs_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/envs/{env_id}:
+    get:
+      tags:
+      - envs
+      summary: Get Env
+      operationId: get_env_api_v1_envs__env_id__get
+      parameters:
+      - name: env_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Env Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - envs
+      summary: Destroy Env
+      operationId: destroy_env_api_v1_envs__env_id__delete
+      parameters:
+      - name: env_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Env Id
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/envs/{env_id}/stop:
+    post:
+      tags:
+      - envs
+      summary: Stop Env
+      operationId: stop_env_api_v1_envs__env_id__stop_post
+      parameters:
+      - name: env_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Env Id
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/envs/{env_id}/metrics:
+    get:
+      tags:
+      - envs
+      summary: Get Env Metrics
+      operationId: get_env_metrics_api_v1_envs__env_id__metrics_get
+      parameters:
+      - name: env_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Env Id
+      - name: minutes
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 60
+          minimum: 1
+          default: 15
+          title: Minutes
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MetricSampleOut'
+                title: Response Get Env Metrics Api V1 Envs  Env Id  Metrics Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/envs/{env_id}/exec:
+    post:
+      tags:
+      - envs
+      summary: Exec In Env
+      description: Queue an exec job if env.observed_state == 'running' (BR4).
+      operationId: exec_in_env_api_v1_envs__env_id__exec_post
+      parameters:
+      - name: env_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Env Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecRequest'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/jobs:
+    get:
+      tags:
+      - jobs
+      summary: List Jobs
+      operationId: list_jobs_api_v1_jobs_get
+      parameters:
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      - name: env_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Env Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Jobs Api V1 Jobs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/jobs/{job_id}:
+    get:
+      tags:
+      - jobs
+      summary: Get Job
+      operationId: get_job_api_v1_jobs__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/files:
+    post:
+      tags:
+      - jobs
+      summary: Submit File
+      description: Stream sample to quarantine/<sha256> (0400), create S env + file_analysis
+        job.
+      operationId: submit_file_api_v1_files_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_submit_file_api_v1_files_post'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/ai-scans:
+    post:
+      tags:
+      - jobs
+      summary: Start Ai Scan
+      description: Create M ai-redteam env + queued ai_scan job.
+      operationId: start_ai_scan_api_v1_ai_scans_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiScanRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/events:
+    get:
+      tags:
+      - monitor
+      summary: List Events
+      description: List activity events in caller's scope.
+      operationId: list_events_api_v1_events_get
+      parameters:
+      - name: severity
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Severity
+      - name: env_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Env Id
+      - name: after_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: After Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Events Api V1 Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/stream:
+    get:
+      tags:
+      - monitor
+      summary: Stream Events
+      description: Server-Sent Events stream with server-side scope filter, resume,
+        and 15s heartbeat.
+      operationId: stream_events_api_v1_stream_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/admin/overview:
+    get:
+      tags:
+      - admin
+      summary: Admin Overview
+      description: Return live SQL counts, host allocation, ledger status, and isolation
+        tier.
+      operationId: admin_overview_api_v1_admin_overview_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Admin Overview Api V1 Admin Overview Get
+  /api/v1/admin/kill-switch:
+    post:
+      tags:
+      - admin
+      summary: Kill Switch
+      description: Set desired_state='stopped' on running environments for one team
+        or all teams.
+      operationId: kill_switch_api_v1_admin_kill_switch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KillSwitchRequest'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KillSwitchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit:
+    get:
+      tags:
+      - audit
+      summary: List Audit
+      operationId: list_audit_api_v1_audit_get
+      parameters:
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action
+      - name: actor_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+      - name: outcome
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outcome
+      - name: from_seq
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: From Seq
+      - name: to_seq
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: To Seq
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Audit Api V1 Audit Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit/export:
+    get:
+      tags:
+      - audit
+      summary: Export Audit
+      operationId: export_audit_api_v1_audit_export_get
+      parameters:
+      - name: kind
+        in: query
+        required: false
+        schema:
+          enum:
+          - records
+          - checkpoints
+          type: string
+          default: records
+          title: Kind
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit/checkpoints:
+    get:
+      tags:
+      - audit
+      summary: List Checkpoints
+      operationId: list_checkpoints_api_v1_audit_checkpoints_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  items:
+                    $ref: '#/components/schemas/CheckpointOut'
+                  type: array
+                type: object
+                title: Response List Checkpoints Api V1 Audit Checkpoints Get
+  /api/v1/audit/pubkey:
+    get:
+      tags:
+      - audit
+      summary: Get Pubkey
+      operationId: get_pubkey_api_v1_audit_pubkey_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Get Pubkey Api V1 Audit Pubkey Get
+  /api/v1/audit/verify:
+    post:
+      tags:
+      - audit
+      summary: Verify Audit
+      description: Run steps 1-4 of docs/04_CONTRACTS.md sec 7.8 over DB using abh_core.
+      operationId: verify_audit_api_v1_audit_verify_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResultOut'
+components:
+  schemas:
+    AiScanRequest:
+      properties:
+        target:
+          type: string
+          enum:
+          - stub-vulnerable
+          - stub-guarded
+          title: Target
+        probe_set:
+          type: string
+          enum:
+          - quick
+          - full
+          title: Probe Set
+      additionalProperties: false
+      type: object
+      required:
+      - target
+      - probe_set
+      title: AiScanRequest
+    AuthSessionOut:
+      properties:
+        user:
+          $ref: '#/components/schemas/UserOut'
+        csrf_token:
+          type: string
+          title: Csrf Token
+      type: object
+      required:
+      - user
+      - csrf_token
+      title: AuthSessionOut
+    Body_submit_file_api_v1_files_post:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+        detonate:
+          type: boolean
+          title: Detonate
+          default: false
+      type: object
+      required:
+      - file
+      title: Body_submit_file_api_v1_files_post
+    CheckpointOut:
+      properties:
+        v:
+          type: integer
+          title: V
+        log_id:
+          type: string
+          title: Log Id
+        tree_size:
+          type: integer
+          title: Tree Size
+        root_hash:
+          type: string
+          title: Root Hash
+        head_hash:
+          type: string
+          title: Head Hash
+        ts:
+          type: string
+          title: Ts
+        signature:
+          type: string
+          title: Signature
+      type: object
+      required:
+      - v
+      - log_id
+      - tree_size
+      - root_hash
+      - head_hash
+      - ts
+      - signature
+      title: CheckpointOut
+    EnvCreate:
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z0-9-]{3,32}$
+          title: Name
+        template:
+          type: string
+          const: app-target
+          title: Template
+        size:
+          type: string
+          enum:
+          - S
+          - M
+          - L
+          title: Size
+        ttl_minutes:
+          anyOf:
+          - type: integer
+            maximum: 240.0
+            minimum: 1.0
+          - type: 'null'
+          title: Ttl Minutes
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - template
+      - size
+      title: EnvCreate
+    EnvOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        team_id:
+          type: string
+          format: uuid
+          title: Team Id
+        owner_id:
+          type: string
+          format: uuid
+          title: Owner Id
+        name:
+          type: string
+          title: Name
+        template:
+          type: string
+          enum:
+          - app-target
+          - file-analysis
+          - ai-redteam
+          title: Template
+        size:
+          type: string
+          enum:
+          - S
+          - M
+          - L
+          title: Size
+        cpu_millis:
+          type: integer
+          title: Cpu Millis
+        mem_mb:
+          type: integer
+          title: Mem Mb
+        storage_mb:
+          type: integer
+          title: Storage Mb
+        pids_limit:
+          type: integer
+          title: Pids Limit
+        desired_state:
+          type: string
+          enum:
+          - running
+          - stopped
+          - destroyed
+          title: Desired State
+        observed_state:
+          type: string
+          enum:
+          - requested
+          - provisioning
+          - running
+          - stopped
+          - destroyed
+          - failed
+          title: Observed State
+        isolation_tier:
+          type: string
+          enum:
+          - ''
+          - gvisor
+          - runc-hardened
+          title: Isolation Tier
+        failure_reason:
+          type: string
+          title: Failure Reason
+        expires_at:
+          type: string
+          title: Expires At
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - id
+      - team_id
+      - owner_id
+      - name
+      - template
+      - size
+      - cpu_millis
+      - mem_mb
+      - storage_mb
+      - pids_limit
+      - desired_state
+      - observed_state
+      - isolation_tier
+      - failure_reason
+      - expires_at
+      - created_at
+      title: EnvOut
+    ExecRequest:
+      properties:
+        command:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Command
+        container:
+          type: string
+          enum:
+          - toolbox
+          - target
+          title: Container
+          default: toolbox
+      additionalProperties: false
+      type: object
+      required:
+      - command
+      title: ExecRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthzOut:
+      properties:
+        status:
+          type: string
+          const: ok
+          title: Status
+        db:
+          type: boolean
+          title: Db
+      type: object
+      required:
+      - status
+      - db
+      title: HealthzOut
+    JobOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          type: string
+          enum:
+          - exec
+          - file_analysis
+          - ai_scan
+          title: Kind
+        env_id:
+          type: string
+          format: uuid
+          title: Env Id
+        team_id:
+          type: string
+          format: uuid
+          title: Team Id
+        requested_by:
+          type: string
+          format: uuid
+          title: Requested By
+        input:
+          additionalProperties: true
+          type: object
+          title: Input
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - done
+          - timeout
+          - error
+          title: Status
+        result:
+          additionalProperties: true
+          type: object
+          title: Result
+        created_at:
+          type: string
+          title: Created At
+        started_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Started At
+        finished_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Finished At
+      type: object
+      required:
+      - id
+      - kind
+      - env_id
+      - team_id
+      - requested_by
+      - input
+      - status
+      - result
+      - created_at
+      - started_at
+      - finished_at
+      title: JobOut
+    KillSwitchRequest:
+      properties:
+        team_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Team Id
+      additionalProperties: false
+      type: object
+      title: KillSwitchRequest
+    KillSwitchResponse:
+      properties:
+        affected:
+          type: integer
+          title: Affected
+      type: object
+      required:
+      - affected
+      title: KillSwitchResponse
+    LoginRequest:
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          minLength: 3
+          title: Email
+        password:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Password
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - password
+      title: LoginRequest
+    MetricSampleOut:
+      properties:
+        ts:
+          type: string
+          title: Ts
+        cpu_pct:
+          type: number
+          title: Cpu Pct
+        mem_mb:
+          type: number
+          title: Mem Mb
+        storage_mb:
+          type: number
+          title: Storage Mb
+        pids:
+          type: integer
+          title: Pids
+        net_rx_bytes:
+          type: integer
+          title: Net Rx Bytes
+        net_tx_bytes:
+          type: integer
+          title: Net Tx Bytes
+      type: object
+      required:
+      - ts
+      - cpu_pct
+      - mem_mb
+      - storage_mb
+      - pids
+      - net_rx_bytes
+      - net_tx_bytes
+      title: MetricSampleOut
+    TeamCreate:
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z0-9-]{3,32}$
+          title: Name
+        quota_envs:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Envs
+        quota_cpu_millis:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Cpu Millis
+        quota_mem_mb:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Mem Mb
+        quota_storage_mb:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Storage Mb
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      title: TeamCreate
+    TeamOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        name:
+          type: string
+          title: Name
+        quota_envs:
+          type: integer
+          title: Quota Envs
+        quota_cpu_millis:
+          type: integer
+          title: Quota Cpu Millis
+        quota_mem_mb:
+          type: integer
+          title: Quota Mem Mb
+        quota_storage_mb:
+          type: integer
+          title: Quota Storage Mb
+        usage:
+          $ref: '#/components/schemas/TeamUsageOut'
+      type: object
+      required:
+      - id
+      - name
+      - quota_envs
+      - quota_cpu_millis
+      - quota_mem_mb
+      - quota_storage_mb
+      - usage
+      title: TeamOut
+    TeamQuotaUpdate:
+      properties:
+        quota_envs:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Envs
+        quota_cpu_millis:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Cpu Millis
+        quota_mem_mb:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Mem Mb
+        quota_storage_mb:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Quota Storage Mb
+      additionalProperties: false
+      type: object
+      title: TeamQuotaUpdate
+    TeamUsageOut:
+      properties:
+        envs:
+          type: integer
+          title: Envs
+        cpu_millis:
+          type: integer
+          title: Cpu Millis
+        mem_mb:
+          type: integer
+          title: Mem Mb
+        storage_mb:
+          type: integer
+          title: Storage Mb
+      type: object
+      required:
+      - envs
+      - cpu_millis
+      - mem_mb
+      - storage_mb
+      title: TeamUsageOut
+    TemplateOut:
+      properties:
+        name:
+          type: string
+          title: Name
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        containers:
+          items:
+            type: string
+          type: array
+          title: Containers
+        sizes:
+          items:
+            type: string
+            enum:
+            - S
+            - M
+            - L
+          type: array
+          title: Sizes
+      type: object
+      required:
+      - name
+      - title
+      - description
+      - containers
+      - sizes
+      title: TemplateOut
+    UserCreate:
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          minLength: 3
+          title: Email
+        password:
+          type: string
+          maxLength: 256
+          minLength: 12
+          title: Password
+        role:
+          type: string
+          enum:
+          - admin
+          - team_lead
+          - analyst
+          - auditor
+          title: Role
+        team_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Team Id
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - password
+      - role
+      title: UserCreate
+    UserOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        email:
+          type: string
+          title: Email
+        role:
+          type: string
+          enum:
+          - admin
+          - team_lead
+          - analyst
+          - auditor
+          title: Role
+        team_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Team Id
+        disabled:
+          type: boolean
+          title: Disabled
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - id
+      - email
+      - role
+      - team_id
+      - disabled
+      - created_at
+      title: UserOut
+    UserUpdate:
+      properties:
+        role:
+          anyOf:
+          - type: string
+            enum:
+            - admin
+            - team_lead
+            - analyst
+            - auditor
+          - type: 'null'
+          title: Role
+        team_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Team Id
+        disabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Disabled
+        password:
+          anyOf:
+          - type: string
+            maxLength: 256
+            minLength: 12
+          - type: 'null'
+          title: Password
+      additionalProperties: false
+      type: object
+      title: UserUpdate
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerifyResultOut:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+        verdict:
+          type: string
+          title: Verdict
+        at:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: At
+        records:
+          type: integer
+          title: Records
+        checkpoints:
+          type: integer
+          title: Checkpoints
+        unanchored_tail:
+          type: integer
+          title: Unanchored Tail
+        checked_at:
+          type: string
+          title: Checked At
+      type: object
+      required:
+      - ok
+      - verdict
+      - at
+      - records
+      - checkpoints
+      - unanchored_tail
+      - checked_at
+      title: VerifyResultOut

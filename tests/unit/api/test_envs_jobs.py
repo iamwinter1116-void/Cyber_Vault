@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import stat
 from pathlib import Path
 
 import pytest
 from fastapi import UploadFile
+
 from services.api.middleware import ApiError
 from services.api.quota import SIZES
 from services.api.routes.jobs import MAX_UPLOAD_BYTES, stream_to_quarantine
@@ -29,7 +31,13 @@ async def test_stream_to_quarantine_hashes_and_enforces_limit(tmp_path: Path) ->
     assert size == len(payload)
     saved = tmp_path / digest
     assert saved.read_bytes() == payload
-    assert stat.S_IMODE(saved.stat().st_mode) == 0o400
+    mode = stat.S_IMODE(saved.stat().st_mode)
+    if os.name == "nt":
+        # Windows exposes its read-only attribute as 0444 through stat(); it
+        # cannot represent the POSIX owner-only 0400 mode.
+        assert mode == 0o444
+    else:
+        assert mode == 0o400
 
     too_big = UploadFile(filename="big.bin", file=io.BytesIO(b"a" * (MAX_UPLOAD_BYTES + 1)))
     with pytest.raises(ApiError) as exc_info:

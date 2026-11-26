@@ -8,9 +8,9 @@ from typing import Literal, cast
 from uuid import UUID
 
 import psycopg
-from core.abh_core.settings import Settings
 
-from services.api.authz import ScopedAuth, record_denied
+from core.abh_core.settings import Settings
+from services.api.authz import ScopedAuth
 from services.api.middleware import ApiError
 from services.api.schemas import EnvOut
 
@@ -107,7 +107,6 @@ def create_env_with_quota(
         )
         host_over = int(cast(int, hu[0])) + cpu > max_cpu or int(cast(int, hu[1])) + mem > max_mem
         if team_over or host_over:
-            record_denied(auth.ctx, auth.rule, target_type="env", target_id="", reason="quota_exceeded")
             raise ApiError("QUOTA_EXCEEDED", 409, "Team quota or host capacity exceeded")
         try:
             cur.execute(
@@ -117,7 +116,6 @@ def create_env_with_quota(
                 (auth.ctx.user.team_id, auth.ctx.user.id, name, template, size, cpu, mem, storage, pids, ttl_minutes),
             )
         except psycopg.errors.UniqueViolation as exc:
-            record_denied(auth.ctx, auth.rule, target_type="env", target_id="", reason="duplicate_name")
             raise ApiError("CONFLICT", 409, "Environment name already exists") from exc
         row = cur.fetchone()
         assert row is not None

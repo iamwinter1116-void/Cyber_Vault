@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from core.abh_core.db import create_pool
-from core.abh_core.settings import Settings
 from fastapi import FastAPI
 
+from core.abh_core.db import create_pool
+from core.abh_core.settings import Settings
 from services.api.authz import verify_route_coverage
 from services.api.middleware import install_middleware_and_handlers
 from services.api.routes import (
