@@ -1,6 +1,6 @@
 # ABHEDYA progress scorecard · 26 November 2026
 
-Snapshot: `integration` at `0f8db47`. `main` remains at `6dc40c8`.
+Snapshot: `integration` at `0833e1c`. `main` remains at `6dc40c8`.
 
 ## What the percentages mean
 
@@ -29,9 +29,9 @@ passed a new real PostgreSQL test.
 
 ## Evidence and immediate gaps
 
-- PRs #1–#7 and #9–#14 merged into `integration`; superseded conflicting PR #8 was closed. Parth B5's 50 pure runner tests independently passed on Manas's Windows host. His 14 real
+- PRs #1–#7 and #9–#16 merged into `integration`; superseded conflicting PR #8 was closed. Parth B5's 50 pure runner tests independently passed on Manas's Windows host. His 14 real
   PostgreSQL tests then passed against a fresh disposable Docker PostgreSQL database on that host; all sandbox
-  Docker/runsc tests remain unrun. The runner is documented at 857/800 non-test code lines.
+  Docker/runsc tests remain unrun. The runner is documented at 850/800 non-test code lines.
 - Henil's API/notary code through `bcaa3bb` and his replacement `live_pg_suite.py` are merged. The original
   `test_pg_routes.py` was excluded because it could disable audit triggers and truncate a database without a
   disposable-database guard. The replacement requires explicit opt-in and separate owner/API/notary role DSNs;

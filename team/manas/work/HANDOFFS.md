@@ -228,3 +228,11 @@ COMMANDS / RESULTS:
   - A read-only import attempt for Henil's live suite -> exit 1, `ModuleNotFoundError: No module named 'argon2'`. No unrecorded API package was installed and that suite was not run.
 VERIFIED: Real PostgreSQL transaction/role behavior for the 14 runner tests on Docker Desktop. NOT VERIFIED: Docker container launch/exec, gVisor, Linux isolation/resource limits, Henil's API/notary live suite, full Makefile or gate acceptance.
 NEXT OWNERS: Bhavya needs to record the remaining allowlisted API/build package versions (including `argon2-cffi`, `fastapi`, `pydantic`, `uvicorn`, `python-multipart`, `ruff`, `mypy`) before a reproducible API image and Henil suite can be run. Henil then handles any API/notary test failure. Parth's sandbox image CR and runner budget remain open.
+
+## 2026-11-26 · Parth reduction PR #16 review
+
+TASK: Review and merge Parth's type-only runner reduction and two unapproved change-request proposals.
+STATUS: PR #16 merged at integration `0833e1c`; implementation coverage unchanged at 16/33. Neither proposal is approved by the merge.
+COMMANDS RUN: On detached `7f86459` (Windows), `python -m pytest` over six pure runner modules -> 50 passed, exit 0. The guarded `tests/unit/runner/live_pg_suite.py` on a fresh disposable `abhedya_test` PostgreSQL project -> 14 passed in 2.49s, exit 0. The disposable project and volume were removed (`down -v` exit 0); normal `db` remained healthy. `git diff --check` -> 0.
+VERIFIED: The code change removes unused runtime fields and a type-only protocol; no sandbox policy code changed. Parth's recorded count is now 850/800 non-test runner lines, still over budget.
+UNVERIFIED: Docker/runsc behavior, sandbox images, host acceptance, and the proposed 1000-line budget and base images. All four approvals remain required for a budget or dependency-contract change.
