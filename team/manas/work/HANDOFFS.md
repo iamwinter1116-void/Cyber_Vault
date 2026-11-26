@@ -170,3 +170,18 @@ was made in this review.
 
 Next: obtain the missing dependency log entries from Bhavya, run Parth's six tests on a disposable Compose
 database, and re-review PR #2. Henil owns the auth rollback fix. No Linux-host result is claimed.
+
+## 2026-11-26 · Integrated local slices and progress baseline
+
+Manas merged PR #2 (Parth runner) as an incomplete local slice at `e1d5cde`, PR #5 (Henil API/notary
+code through `bcaa3bb`, excluding the unsafe later PostgreSQL test) at `82673ec`, and PR #6 (Bhavya
+verifier/tests) at `0a664f9`. `main` remained at `6dc40c8`. The PR bodies list each pending host and live
+test. On Parth `2075dbf`, Manas independently ran five runner modules: 44 passed, exit 0; compileall
+exited 0. On Bhavya `79a89f2`, compileall and verifier CLI help exited 0; verifier-side vector selection
+with the versions in her lock file exited 0 with 22 passed and 7 core-side cases deselected.
+
+`team/manas/work/PROGRESS.md` records a conservative 15/33 = 45.5% integrated-implementation coverage
+from the 33 named owner task prompts. This is not objective acceptance: 0/9 mandatory objectives and
+0/5 gates have the required host evidence. The later Henil database test still needs a disposable-database
+guard and separate owner/API DSNs before it can be run or integrated. Bhavya's dependency lock and security
+test discrepancies remain open. No Linux-host pass is claimed.
