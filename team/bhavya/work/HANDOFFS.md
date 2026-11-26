@@ -209,3 +209,26 @@ OPEN ITEMS FOR TEAM:
 NEXT: Manas reviews updated PR #20 (work/bhavya -> integration); run live suites on Linux/runsc primary VM once stack is up.
 ```
 
+```
+TASK: PR #20 follow-up fixes (T-RES-01..06, T-ISO-04) + explicit C decisions on Parth's CR_ENTRIES_FOR_09.md
+STATUS: partial (all local checks pass; all Linux/runsc and live-stack checks remain unrun until primary VM stack is up)
+CHANGED:
+  - tests/security/test_resources.py (T-RES-01 5s alert delta from OOM timestamp; T-RES-02 assert PidsLimit + fork_bomb errno and clean up env_hostile in finally; T-RES-03 free_before after provisioning and strict <= storage_mb bound without +16 MiB; T-RES-04 measure avg CPU pct <= 115% over 20s burn; T-RES-05 assert denied env.create audit record and Team.usage == SQL sum; T-RES-06 assert provisioning state before runner restart + exact 2 containers, 1 network, 1 volume)
+  - tests/security/test_isolation.py (T-ISO-04 removed ABH_ENABLE_DETONATION env bypass; detonator check always runs unless docs/02 cut is recorded)
+CR DECISIONS (Bhavya = role C, from team/parth/work/CR_ENTRIES_FOR_09.md):
+  - CR 1 (docs/03_CONTEXT.md s6: python:3.13-slim-trixie by digest, curl in toolbox, stdlib probes, transitive deps with sha256 in VERSIONS.lock): C = YES
+  - CR 2 (docs/05_OBJECTIVES.md: services/runner code budget 800 -> 1000 for B6 file analysis): C = YES
+COMMANDS RUN (with exit codes):
+  $ python -m py_compile ... -> 0
+  $ git -C d:\Cyber_Vault diff --check -> 0
+  $ python -m pytest d:\Cyber_Vault\tests\contract --collect-only -q -> 0 (216 tests collected in 1.81s)
+  $ python -m pytest d:\Cyber_Vault\tests\security --collect-only -q -> 0 (28 tests collected in 0.70s)
+  $ python -m pytest d:\Cyber_Vault\tests\e2e --collect-only -q -> 0 (4 tests collected in 0.56s)
+  $ python -m pytest tests/contract/test_rbac_matrix.py::test_t_rbac_05_registered_routes_match_matrix tests/contract/test_audit_vectors.py tests/security/test_isolation.py::test_t_static_01_compose_and_runner_no_dangerous_flags -q -> 0 (31 passed in 17.24s)
+TESTS:
+  - Passed locally (31): T-RBAC-05, T-KAT-01..04 (core + verifier), T-AUD-05 (60 Hypothesis examples), T-STATIC-01
+  - Unrun Linux/runsc & live-stack checks: T-ISO-01..07, T-RES-01..06, T-AUD-01..04, 06..08, T-MON-01..04, T-WL-01..03, T-E2E-01..04, T-RBAC-01..03, 07, 09..12, T-AUTH-01..05, T-API-01
+  - Open CR: R21 / T-WL-03 stub-target conflict remains pending the four-person O9 CR.
+NEXT: Manas reviews updated PR #20 (work/bhavya -> integration); run live/Linux suites on primary VM once stack is up.
+```
+

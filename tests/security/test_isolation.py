@@ -68,8 +68,8 @@ def test_t_iso_03_cross_team_network_isolation(stack_url: str) -> None:
         assert dns["resolved"] is False, f"Cross-team DNS resolved {cname}: {dns.get('addresses')}"
 
 
-def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str, record_property: pytest.FixtureRequest) -> None:
-    """T-ISO-04: Both toolbox and target cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443)."""
+def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
+    """T-ISO-04: Both toolbox and target cannot reach bridge gateway, host LAN (443,5432,8000), or public IP (53,443); detonator loopback-only."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-04-alpha")
     lan_ip = os.environ.get("ABH_HOST_LAN_IP", "")
@@ -101,10 +101,6 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str, record_proper
             job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {host} {port} 3", container=container)
             out = json.loads(job["result"]["output"].strip().splitlines()[-1])
             assert out["reachable"] is False, f"{container} reached egress/control-plane at {host}:{port}"
-
-    if os.environ.get("ABH_ENABLE_DETONATION", "1") != "1":
-        record_property("detonator_subcheck", "out_of_scope_cut_5")
-        return
 
     r_det = ca.post(
         f"{API_BASE}/files",
