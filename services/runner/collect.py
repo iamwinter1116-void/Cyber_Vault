@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, cast
 
-import docker.errors
+import docker.errors  # type: ignore[import-untyped]  # docker 7.2.0 ships no py.typed
 
 from core.abh_core.audit import append
 from core.abh_core.db import transaction
@@ -43,7 +43,8 @@ def storage_used(env: EnvRow, method: str | None, volume_dir: str, containers: S
     """docs/08 section 4: V1 the allocated size of the image file; V2/V3 the used size seen inside the sandbox.
     A V2 volume is shared by the env's containers (largest reading); each V3 tmpfs is per container (sum)."""
     if storage.require(method) == "V1":
-        return os.stat(storage.image_path(volume_dir, env)).st_blocks * 512 / MIB
+        blocks: int = getattr(os.stat(storage.image_path(volume_dir, env)), "st_blocks")  # POSIX-only field
+        return blocks * 512 / MIB
     used = []
     for c in containers:
         r = c.exec_run(["df", "-P", "-k", "/workspace"], user="1000:1000")

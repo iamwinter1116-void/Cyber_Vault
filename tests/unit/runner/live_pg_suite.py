@@ -1,11 +1,15 @@
-"""Runner SQL against real PostgreSQL with contracts/schema.sql applied. No Docker is involved or replaced:
-claim(), record(), the reaper's liveness query and the collector's DB writes (samples, NOTIFY, alerts, OOM,
-unexpected exit) run here; apply(), reap(), the stats sampler and the events stream need the Linux host.
+"""Runner SQL against real PostgreSQL with contracts/schema.sql applied, run explicitly (not collected by
+pytest's default test_*.py pattern, so `make check-fast` neither runs nor skips it):
 
-Needs docker (imported by collect.py, no daemon used), psycopg, psycopg-pool, pydantic-settings, and:
-  ABH_TEST_OWNER_DSN   owner role: inserts the team/user/env fixtures the runner role may not insert
-  ABH_TEST_RUNNER_DSN  abh_runner role: everything the runner code does
-WARNING: audit_log is append-only, so each run leaves permanent env.* audit rows. Use a disposable database.
+  python -m unittest -v tests.unit.runner.live_pg_suite
+
+No Docker is involved or replaced: claim(), record(), the reaper's liveness query, the collector's DB writes
+(samples, NOTIFY, alerts, OOM, unexpected exit) and the exec job claim/finish/recovery run here; Docker work
+needs the Linux host. Needs docker (imported, no daemon used), psycopg, psycopg-pool, pydantic-settings, and:
+  ABH_TEST_ALLOW_DISPOSABLE_DB=1
+  ABH_TEST_OWNER_DSN   owner role on a disposable database whose name contains "test" or "disposable"
+  ABH_TEST_RUNNER_DSN  abh_runner role on the same database: everything the runner code does
+audit_log is append-only, so each run leaves permanent audit rows; it refuses any other database.
 """
 
 import json
@@ -13,19 +17,30 @@ import os
 import unittest
 import uuid
 
+import psycopg
+
+from core.abh_core.audit import record_hash
+from core.abh_core.db import create_pool, transaction
+from services.runner import collect, jobs, reconcile
+from services.runner.state import Work
+
 DSN_OWNER = os.environ.get("ABH_TEST_OWNER_DSN", "")
 DSN_RUNNER = os.environ.get("ABH_TEST_RUNNER_DSN", "")
-if not DSN_OWNER or not DSN_RUNNER:
-    raise RuntimeError("set ABH_TEST_OWNER_DSN and ABH_TEST_RUNNER_DSN; this test is not skipped silently")
-
-import psycopg  # noqa: E402
-from core.abh_core.audit import record_hash  # noqa: E402
-from core.abh_core.db import create_pool, transaction  # noqa: E402
-from services.runner import collect, reconcile  # noqa: E402
-from services.runner.state import Work  # noqa: E402
 
 BODY = ("v", "seq", "ts", "actor_type", "actor_id", "actor_role", "team_id", "action", "target_type", "target_id",
         "outcome", "ip", "request_id", "detail", "prev_hash")
+
+
+def require_disposable() -> None:
+    """Fail loudly (never skip) unless explicitly pointed at a disposable database, as Henil's live suite does."""
+    if os.environ.get("ABH_TEST_ALLOW_DISPOSABLE_DB") != "1" or not DSN_OWNER or not DSN_RUNNER:
+        raise RuntimeError("set ABH_TEST_ALLOW_DISPOSABLE_DB=1, ABH_TEST_OWNER_DSN and ABH_TEST_RUNNER_DSN")
+    names = []
+    for dsn in (DSN_OWNER, DSN_RUNNER):
+        with psycopg.connect(dsn, autocommit=True) as c:
+            names.append(str((c.execute("SELECT current_database()").fetchone() or ("",))[0]))
+    if names[0] != names[1] or names[0] == "abhedya" or not ("test" in names[0] or "disposable" in names[0]):
+        raise RuntimeError(f"refusing non-disposable or mismatched databases {names!r}")
 
 
 class PgFixture(unittest.TestCase):
@@ -33,6 +48,7 @@ class PgFixture(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        require_disposable()
         cls.pool = create_pool(DSN_RUNNER, max_size=2)
         cls.team = cls.user = ""
         with psycopg.connect(DSN_OWNER, autocommit=True) as o:
@@ -50,6 +66,8 @@ class PgFixture(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.pool.close()
         with psycopg.connect(DSN_OWNER, autocommit=True) as o:  # retire this run's rows so a re-run may start
+            o.execute("UPDATE job SET status = 'error', finished_at = now() WHERE team_id = %s"
+                      " AND status IN ('queued', 'running')", (cls.team,))
             o.execute("UPDATE env SET observed_state = 'destroyed', desired_state = 'destroyed' WHERE team_id = %s",
                       (cls.team,))
 
@@ -207,6 +225,70 @@ class CollectSQL(PgFixture):
             self.assertEqual(self.row("SELECT observed_state FROM env WHERE id = %s", env_id), (observed,))
         self.assertFalse(collect.on_die(self.pool, str(uuid.uuid4()), "abh-x-target", "0", False))
 
+
+
+class JobsSQL(PgFixture):
+    def job(self, env_id: str, kind: str = "exec", container: str = "toolbox") -> str:
+        with psycopg.connect(DSN_OWNER, autocommit=True) as o:
+            r = o.execute("INSERT INTO job (kind, env_id, team_id, requested_by, input) VALUES (%s, %s, %s, %s, %s)"
+                          " RETURNING id::text", (kind, env_id, self.team, self.user,
+                                                  json.dumps({"command": "id", "container": container})))
+            return str(r.fetchone()[0])  # type: ignore[index]
+
+    def drain(self) -> list[jobs.Job]:
+        out = []
+        while (j := jobs.claim(self.pool)) is not None:
+            out.append(j)
+        return out
+
+    def test_claim_takes_only_queued_exec_jobs_oldest_first(self) -> None:
+        env_id = self.env("running", "running")
+        other = self.job(env_id, kind="file_analysis")
+        first, second = self.job(env_id), self.job(env_id)
+        ids = [j[0] for j in self.drain()]
+        self.assertLess(ids.index(first), ids.index(second))
+        self.assertNotIn(other, ids)
+        self.assertEqual(self.row("SELECT status, started_at IS NOT NULL FROM job WHERE id = %s", first),
+                         ("running", True))
+        self.assertEqual(self.row("SELECT status FROM job WHERE id = %s", other), ("queued",))
+
+    def test_finish_writes_result_audit_and_activity_once(self) -> None:
+        env_id = self.env("running", "running")
+        job_id = self.job(env_id)
+        self.drain()
+        result = {"exit_code": 0, "output": "uid=1000", "truncated": False, "duration_ms": 12}
+        with transaction(self.pool) as conn:
+            self.assertTrue(jobs.finish(conn, job_id, env_id, self.team, "done", result))
+        with transaction(self.pool) as conn:
+            self.assertFalse(jobs.finish(conn, job_id, env_id, self.team, "error", {"error": "again"}))
+        self.assertEqual(self.row("SELECT status, result, finished_at IS NOT NULL FROM job WHERE id = %s", job_id),
+                         ("done", result, True))
+        self.assertEqual(self.row("SELECT action, target_type, outcome, actor_id, team_id, detail FROM audit_log"
+                                  " WHERE target_id = %s", job_id),
+                         ("job.finished", "job", "success", "runner", self.team,
+                          {"kind": "exec", "status": "done", "env_id": env_id, "exit_code": 0, "duration_ms": 12,
+                           "truncated": False}))
+        self.assertEqual(self.row("SELECT count(*) FROM activity_event WHERE env_id = %s AND kind = 'job.finished'",
+                                  env_id), (1,))
+
+    def test_run_job_ends_as_error_before_any_docker_call(self) -> None:
+        stopped, running = self.env("stopped", "stopped"), self.env("running", "running")
+        for env_id, container in ((stopped, "toolbox"), (running, "analyzer")):
+            job_id = self.job(env_id, container=container)
+            claimed = [j for j in self.drain() if j[0] == job_id]
+            self.assertEqual(jobs.run_job(self.pool, None, claimed[0]), "error")  # api=None: never reached
+            status, result = self.row("SELECT status, result FROM job WHERE id = %s", job_id)
+            self.assertEqual(status, "error")
+            self.assertIn("ValueError", str(result))
+
+    def test_recover_orphans_ends_running_jobs_with_audit(self) -> None:
+        env_id = self.env("running", "running")
+        job_id = self.job(env_id)
+        self.drain()
+        self.assertGreaterEqual(jobs.recover_orphans(self.pool), 1)
+        self.assertEqual(self.row("SELECT status FROM job WHERE id = %s", job_id), ("error",))
+        self.assertEqual(self.row("SELECT action, outcome FROM audit_log WHERE target_id = %s", job_id),
+                         ("job.finished", "error"))
 
 if __name__ == "__main__":
     unittest.main()
