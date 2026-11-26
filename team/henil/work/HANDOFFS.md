@@ -148,3 +148,27 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - `services/api` line count will be trimmed below the 1100-line ceiling in Task A7 after all 31 routes are in place.
 NEXT: A5 (`stream`, `events`, `admin/overview`, `admin/kill-switch`, `R22`, `R23`, `R29`, `R30`), while continuing 5-min checks on `origin/integration`.
 
+## 2026-11-26 · Task A5 local implementation slice (`R22`, `R23`, `R29`, `R30`)
+
+TASK: A5 · Real-time SSE stream, activity events, admin overview, and kill switch (`R22`, `R23`, `R29`, `R30`)
+STATUS: partial (SSE scope-filter unit tests, ruff, and mypy --strict pass; live LISTEN/NOTIFY, Last-Event-ID replay, and proxy buffering checks pending PostgreSQL/stack)
+CHANGED:
+  - `services/api/routes/monitor.py` (`R22` SSE with `LISTEN abh_activity/abh_audit/abh_metric`, `Last-Event-ID` replay, 15s heartbeat, `X-Accel-Buffering: no`, and `R23` `GET /events`)
+  - `services/api/routes/admin.py` (`R29` live SQL `GET /admin/overview` and `R30` `POST /admin/kill-switch`)
+  - `services/api/main.py` (mounts `monitor` and `admin` routers)
+  - `tests/unit/api/test_monitor_admin.py` (unit tests for `scope_allows_event` across roles/event types)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 27 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (27 passed in 1.73s)
+TESTS: 27/27 unit tests passed; T-MON-01..04 against live PostgreSQL + proxy pending
+VERIFIED FACTS:
+  - `scope_allows_event` enforces `04_CONTRACTS.md` sec 6 (`analyst` receives zero `audit` events; `team_lead` receives own team's `audit` events; `admin`/`auditor` receive all).
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL `LISTEN/NOTIFY` delivery, `Last-Event-ID` replay, `GET /admin/overview` SQL queries, and `POST /admin/kill-switch` remain unverified without PostgreSQL.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - Continue compacting `services/api` in Task A7 to stay under 1100 lines.
+NEXT: A6 (`services/notary` + `services/api/routes/audit.py` `R24`–`R28`), while continuing 5-min checks on `origin/integration`.
+
