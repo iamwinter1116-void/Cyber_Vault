@@ -1,6 +1,6 @@
 # ABHEDYA progress scorecard · 26 November 2026
 
-Snapshot: `integration` at `0833e1c`. `main` remains at `6dc40c8`.
+Snapshot: `integration` at `074caf8`. `main` remains at `6dc40c8`.
 
 ## What the percentages mean
 
@@ -29,7 +29,7 @@ passed a new real PostgreSQL test.
 
 ## Evidence and immediate gaps
 
-- PRs #1–#7 and #9–#16 merged into `integration`; superseded conflicting PR #8 was closed. Parth B5's 50 pure runner tests independently passed on Manas's Windows host. His 14 real
+- PRs #1–#7 and #9–#19, plus docs-only PR #21, merged into `integration`; superseded conflicting PR #8 was closed. Parth B5's 50 pure runner tests independently passed on Manas's Windows host. His 14 real
   PostgreSQL tests then passed against a fresh disposable Docker PostgreSQL database on that host; all sandbox
   Docker/runsc tests remain unrun. The runner is documented at 850/800 non-test code lines.
 - Henil's API/notary code through `bcaa3bb` and his replacement `live_pg_suite.py` are merged. The original
@@ -37,8 +37,9 @@ passed a new real PostgreSQL test.
   disposable-database guard. The replacement requires explicit opt-in and separate owner/API/notary role DSNs;
   its real PostgreSQL run remains pending.
 - Bhavya's verifier-side vector selection independently passed 22 tests; 7 core-side tests were not run in
-  that invocation. Her live contract/security/e2e suites remain pending. T-ISO-03 currently permits an
-  unsent ICMP probe while reporting the test green, so it cannot yet establish the full T-ISO-03 condition.
+  that invocation. Her live contract/security/e2e suites remain pending. Her PR #20 corrects the unsent ICMP
+  false pass but remains open because its RBAC fixture submits an exec job before the environment is running
+  and several resource tests still omit frozen pass conditions.
 - `web/` and `sandbox/` have no implementation in `integration`. Compose currently runs only PostgreSQL;
   no API, runner, notary or proxy Compose block or CI workflow exists. The Make interface now refuses unavailable
   services and tests explicitly; it has not passed `make check-fast` or full-stack checks.

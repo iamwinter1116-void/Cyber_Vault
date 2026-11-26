@@ -1,4 +1,4 @@
-.PHONY: preflight secrets db-up db-down up down check-fast test-contract test-security test-e2e scan openapi evidence demo-reset tamper-drill
+.PHONY: preflight secrets db-up db-down up down check-fast budget-report test-contract test-security test-e2e scan openapi evidence demo-reset tamper-drill
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= python
@@ -28,12 +28,16 @@ down:
 	docker compose down
 
 check-fast:
+	$(PYTHON) db/init/report_budgets.py
 	$(PYTHON) db/init/require.py check-fast
 	$(PYTHON) -m ruff check core services tests/unit
 	$(PYTHON) -m mypy --strict core/abh_core services/api services/notary services/runner tests/unit
 	cd web && npx --no-install tsc --noEmit
 	$(PYTHON) -m pytest tests/unit -q
 	$(PYTHON) db/init/require.py placeholders
+
+budget-report:
+	$(PYTHON) db/init/report_budgets.py
 
 test-contract:
 	$(PYTHON) db/init/require.py test-contract
