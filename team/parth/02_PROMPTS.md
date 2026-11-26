@@ -5,6 +5,8 @@
 runtime half of O3 and the collection half of O4.
 **You never touch:** `contracts/`, `docs/`, `core/`, `services/api/`, `services/notary/`, `web/`, `tools/`, `tests/contract`, `tests/security`, other people's folders under `team/`.
 **Where you run:** edit/unit-test on your development environment; run Docker, `runsc`, and isolation tasks on Manas's primary Ubuntu VM over SSH, in an announced window (`01_DEVICE_SETUP.md`). A is Henil, C is Bhavya, and D is Manas.
+**Current sequence:** read `docs/16_BUILD_NOW_HOST_LATER.md`. The B0 scripts may be reviewed and repaired locally,
+then independent real runner code may proceed. B0 and B1 isolation acceptance stay open until actual Linux tests.
 **You are the only member whose code holds the Docker socket.** Everything you write is part of the trusted
 computing base. Small and boring is the goal.
 

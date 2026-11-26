@@ -1,5 +1,8 @@
 # 02 · Master plan
 
+Current execution order is `docs/16_BUILD_NOW_HOST_LATER.md`: all four owners implement real local slices first;
+Linux-host validation follows. The dated schedule below is historical. No 501 route stub or simulated gate pass is allowed.
+
 ## 1. Mission in one sentence
 Ship a small platform where the jury can watch a hostile tenant fail to escape, fail to reach another team,
 fail to starve the host, and fail to alter the audit log unnoticed, and where each of the eight listed
@@ -60,7 +63,7 @@ hardware is not required for mandatory objectives.
 
 | Gate | Target time after start (T0) | Exit criteria |
 | --- | --- | --- |
-| **G0 Contracts and host** | T0 + 2 h | `make preflight` passes (runsc hello-world, isolated network, storage method chosen). `contracts/schema.sql` applied on the real PostgreSQL. `make check-fast` runs. `contracts/openapi.yaml` generated from route stubs and committed. All four have read `03` and `04` and signed the freeze line in `09`. |
+| **G0 Contracts and host** | Host gate, date pending | `make preflight` passes on real Linux (`runsc` hello-world, isolated network, storage method chosen). `contracts/schema.sql` applies on real PostgreSQL. `make check-fast` runs. `contracts/openapi.yaml` is generated from real implemented routes and committed. All four read `03` and `04` and sign the freeze line in `09`. No local-only result substitutes for this gate. |
 | **G1 Walking skeleton** | T0 + 8 h | Through the browser: log in, create an S `app-target` environment, see it reach `running` with tier `gvisor`, see one metric sample, see the audit records. `tools/verify_audit.py` returns OK on a live export. T-KAT-01 to T-KAT-04, T-ISO-01 green. |
 | **G2 All deliverables** | T0 + 18 h | O1 to O9 work on the happy path. `make test-contract` green. |
 | **G3 Proof** | T0 + 26 h | `make test-security` green. `make scan` run and triaged. Ten tamper cases detected with the expected verdicts. Outsider break-it session held and logged. |

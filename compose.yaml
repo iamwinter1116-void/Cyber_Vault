@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16@sha256:07abc3f43c9395b0bdbbab36bc25ddb0e8d83cd4fcafb5fb7d6abe14ff156dd8
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: abhedya
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_owner
+    secrets:
+      - db_owner
+      - abh_api
+      - abh_runner
+      - abh_notary
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./contracts/schema.sql:/contracts/schema.sql:ro
+      - ./db/init/01-schema-and-roles.sh:/docker-entrypoint-initdb.d/01-schema-and-roles.sh:ro
+    networks:
+      - control
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d abhedya"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+networks:
+  control:
+    internal: true
+
+volumes:
+  db_data:
+
+secrets:
+  db_owner:
+    file: ./secrets/db_owner
+  abh_api:
+    file: ./secrets/abh_api
+  abh_runner:
+    file: ./secrets/abh_runner
+  abh_notary:
+    file: ./secrets/abh_notary

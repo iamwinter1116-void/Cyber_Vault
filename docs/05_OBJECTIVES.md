@@ -22,7 +22,7 @@ Leads: A = Henil, B = Parth, C = Bhavya. Each person's slice is in `team/<name>/
 2. `make check-fast` exits 0.
 3. No contract file changed, or a CR exists.
 4. No new dependency, or its registry check is recorded in `evidence/VERSIONS.lock` and the allowlist CR exists.
-5. No placeholder: no `TODO`, `FIXME`, `NotImplementedError`, `mock` or `simulate` in non-test code. One exception: API route stubs marked `STUB-G0`, created at G0 so the OpenAPI document can be generated. Their count is printed by `make check-fast` and must be zero at G2.
+5. No placeholder: no `TODO`, `FIXME`, `NotImplementedError`, `mock`, `simulate`, or `STUB-G0` route in non-test code. Generate OpenAPI from implemented routes only; until all 31 are real, report the missing operations and G0/G2 as pending. The older `STUB-G0` exception is withdrawn by the current work-order decision in `16_BUILD_NOW_HOST_LATER.md`.
 6. Every security-relevant branch has a test that takes the refusing path.
 7. A hand-off note in the format of `07_ANTI_HALLUCINATION.md` section 5 is written.
 

@@ -26,10 +26,10 @@ two-minute human checks → merge. For C1 and C2 add one instruction at the top 
 
 ---
 
-### C0 · Contract test harness (about 60 minutes, after Manas M1 scaffold)
+### C0 · Contract test harness (start now; no VM or scaffold prerequisite)
 ```
 Task C0. Read `docs/04_CONTRACTS.md` sections 1 to 4, `contracts/rbac_matrix.yaml`, `contracts/audit_vectors.json`,
-and `docs/06_VERIFICATION.md` sections 1 to 3. Work after Manas has created the scaffold and shared build files.
+and `docs/06_VERIFICATION.md` sections 1 to 3. Start with locally runnable vector and matrix cases now.
 Write only `tests/contract/conftest.py`, `tests/contract/test_audit_vectors.py`, and
 `tests/contract/test_rbac_matrix.py`. Use a stack URL from the environment, fixture users named by the verification
 plan, and a database connection only where the test requires an assertion. Generate RBAC cases directly from the

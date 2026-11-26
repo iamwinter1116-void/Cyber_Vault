@@ -17,8 +17,8 @@ and gVisor; WSL and Docker Desktop are not acceptable evidence for sandbox secur
 | Network | Host can reach VM; sandbox networks cannot reach host/control plane/internet | Enables team/jury access without weakening tenant isolation |
 | Runtime | Docker Engine + gVisor `runsc`, default `systrap` | `runsc` must be real and inspectable |
 
-Do not enable GPU passthrough for tenants. The mandatory AI workload is an offline stub. A real GPU-backed model is a
-post-G4 stretch only and must be treated as a network/isolation change, not a harmless performance toggle.
+Do not enable GPU passthrough for tenants. The original AI model target is pending a four-person change request
+under `docs/16_BUILD_NOW_HOST_LATER.md`; any real model is a network/isolation change that needs explicit tests.
 
 ## Host checks and safe operation
 
