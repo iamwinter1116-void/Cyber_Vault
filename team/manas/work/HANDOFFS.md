@@ -119,3 +119,27 @@ installed `cryptography` 50.0.1. Changed `Makefile` and `db/init/generate_secret
 
 Next: after Bhavya records the runner dependencies, execute Parth's six PostgreSQL tests on a disposable Compose
 project with a temporary combined checkout of Parth and Henil. Do not count this as Docker/runsc acceptance.
+
+## 2026-11-26 · Integration slice promotion
+
+Task: keep `integration` useful for owner branches while preserving pending acceptance status. Manas merged three
+reviewed PRs into `integration`; `main` was not changed.
+
+- PR #1, Manas M1 work-order, Compose database, secret generator and Makefile slice: merge commit `5581509`.
+  `docker compose config --quiet`, `make db-up`, schema/role/password/privilege checks and database persistence
+  had passed locally. Full-stack and Linux acceptance remain pending.
+- PR #3, Henil's original A1 core commit `d3b772e`: merge commit `8db71ed`. The core and its unit test files
+  were unchanged on Henil's later branch. Henil's handoff reports 19 unit/vector, ruff and mypy passes;
+  Manas's earlier real PostgreSQL 50-thread append check passed with the same core. Later API code was excluded.
+- PR #4, Parth's B0 scripts through corrected commit `28cf689`: merge commit `26a71e0`. `git diff --check` passed;
+  Git-for-Windows `sh -n` and `dash -n` passed on both scripts; total 150 lines. Windows `sh host/preflight.sh`
+  exited 1 at check 1 (`FAIL 1 os: MINGW64_NT...`), with no later check run. On the merged integration tree,
+  `make preflight` invoked that script and Make exited 2 after the same check-1 refusal. The real Linux B0 checks
+  are all pending.
+- `work/manas` was fast-forwarded locally to `origin/integration` after these merges. No contributor's feature
+  source was edited by Manas; the two slice PRs pointed at the owners' original commits.
+
+Open: Parth PR #2 runner needs its six real PostgreSQL tests and dependency entries in Bhavya's lock file.
+Henil's later API/notary code still has the denied-login audit rollback observed against PostgreSQL, an API
+line-budget overage, and unrun live checks. Bhavya's test/console branch has no open PR yet. No G0–G4 gate
+or Linux-dependent objective is green.
