@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from services.api.authz import verify_route_coverage
 from services.api.middleware import install_middleware_and_handlers
-from services.api.routes import auth, health, teams, templates, users
+from services.api.routes import auth, envs, health, jobs, teams, templates, users
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,6 +37,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(teams.router, prefix="/api/v1")
     app.include_router(templates.router, prefix="/api/v1")
+    app.include_router(envs.router, prefix="/api/v1")
+    app.include_router(jobs.router, prefix="/api/v1")
     verify_route_coverage(app, require_all=False)
     return app
 

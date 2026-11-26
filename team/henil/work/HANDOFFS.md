@@ -123,3 +123,28 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - `services/api` is currently ~1230 lines (over the 1100-line ceiling); will deduplicate SQL/helper code in Task A7 (or earlier) to bring it under 1100 lines.
 NEXT: A4 (`envs`, `jobs`, `files`, `ai-scans`, quota admission `R11`–`R21`), while continuing 5-min checks on `origin/integration`.
 
+## 2026-11-26 · Task A4 local implementation slice (`R11`–`R21`)
+
+TASK: A4 · Environments, jobs, file-analysis upload streaming, AI-scan submission, and quota admission (`R11`–`R21`)
+STATUS: partial (unit tests for SIZES and 10 MiB quarantine streaming + ruff + mypy --strict pass; DB-backed quota/BR3/BR4/atomicity tests pending PostgreSQL)
+CHANGED:
+  - `services/api/routes/envs.py` (R11–R17 + `create_env_with_quota` + `_load_scoped_env`)
+  - `services/api/routes/jobs.py` (R18–R21 + `stream_to_quarantine` 0400/10 MiB)
+  - `services/api/main.py` (mounts `envs` and `jobs` routers)
+  - `tests/unit/api/test_envs_jobs.py` (unit tests for SIZES and quarantine streaming/limit)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 24 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (26 passed in 1.82s)
+TESTS: 26/26 unit tests passed; T-RES-05, T-AUD-07, T-RBAC-11, T-RBAC-12 against live PostgreSQL pending
+VERIFIED FACTS:
+  - `SIZES` matches `04_CONTRACTS.md` sec 4 (`S`: 500/256/128/128, `M`: 1000/512/256/256, `L`: 2000/1024/512/512).
+  - `stream_to_quarantine` streams chunks, computes SHA-256, enforces 10 MiB (`413 PAYLOAD_TOO_LARGE`), writes `<sha256>` with mode `0400`, and cleans up temp files on error.
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL execution of `R11`–`R21`, `BR3` (`QUOTA_EXCEEDED`), `BR4` (`ENV_NOT_RUNNING`), and `T-AUD-07` atomicity awaits PostgreSQL / Manas's VM.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - `services/api` line count will be trimmed below the 1100-line ceiling in Task A7 after all 31 routes are in place.
+NEXT: A5 (`stream`, `events`, `admin/overview`, `admin/kill-switch`, `R22`, `R23`, `R29`, `R30`), while continuing 5-min checks on `origin/integration`.
+
