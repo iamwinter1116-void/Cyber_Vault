@@ -74,3 +74,26 @@ which rolls back the append. Henil owns the fix; no API code was changed here.
 
 Status: local DB initialization and core append evidence passed. M1 full stack, G0, T-AUTH contract suite, sandbox,
 and security acceptance remain open. No mock, stub, simulation or Linux-host pass is claimed.
+
+## 2026-11-26 · M1 Compose database slice
+
+Task: Manas-owned M1 database wiring, local development evidence. Host: Windows with Docker Desktop 29.8.1 and
+Compose 5.5.1; this is not the Linux demo host. Changed `compose.yaml` and `Makefile`.
+
+- `compose.yaml` runs the pinned official PostgreSQL 16 image, applies the frozen schema through the existing
+  `db/init/01-schema-and-roles.sh`, mounts ignored password files as Compose secrets, persists data in a named volume,
+  and attaches only to an internal `control` network. The `db` service publishes no host port.
+- `make db-up` waits for the real database health check; `make db-down` stops it without removing data;
+  `make preflight` invokes Parth's actual `host/preflight.sh` when his branch is integrated.
+- `docker compose config --quiet` and `git diff --check` exited 0. `make db-up` exited 0 and reported healthy.
+- SQL observed 9 public tables and roles `abh_api`, `abh_runner`, `abh_notary`. All three can SELECT/INSERT
+  `audit_log`; none can UPDATE/DELETE it. A wrong `abh_api` password over TCP to service `db` was rejected
+  (psql exit 2); the correct password from its secret file connected as `abh_api`.
+- `docker inspect sfic-db-1` reported empty port bindings and `5432/tcp: null` for published ports.
+- `make db-down` then `make db-up` both exited 0. The PostgreSQL system identifier matched before and after;
+  all 9 tables remained. The older standalone `abh-local-db` test container was stopped, not deleted.
+- `make -n preflight` showed `sh host/preflight.sh`; the script is only on Parth's branch and was not run here.
+
+Status: M1 database Compose slice passed locally. The full Compose stack, canonical remaining Make targets, CI,
+Linux preflight, and G0 are still open. The API denied-login audit rollback reported above is still open on Henil's branch.
+No mock, stub, simulation, or Linux-host pass is claimed.
