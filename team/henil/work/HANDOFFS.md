@@ -59,3 +59,41 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - Need PostgreSQL 16+ (or Manas's `compose.yaml` `db` service) to run the 50-thread concurrency test and `schema.sql` validation.
 NEXT: A0/A2 real API schemas + auth slice (`services/api/`), while continuing 5-min integration checks.
 
+## 2026-11-26 · Task A0/A2 local implementation slice (`services/api` schemas, middleware, security, R01–R03, R31)
+
+TASK: A0/A2 · Canonical schemas, security middleware, Argon2id/CSPRNG sessions, R01–R03 + R31 (`docs/16_BUILD_NOW_HOST_LATER.md` local slice; no 501 stubs)
+STATUS: partial (schemas, security helpers, middleware, error envelopes, and R31 healthz tested locally; DB-backed login/logout/me/lockout paths and T-AUTH-01..05 contract tests pending live PostgreSQL)
+CHANGED:
+  - `services/__init__.py` (1 line)
+  - `services/api/__init__.py` (1 line)
+  - `services/api/schemas.py` (218 lines)
+  - `services/api/middleware.py` (78 lines)
+  - `services/api/security.py` (53 lines)
+  - `services/api/deps.py` (122 lines)
+  - `services/api/main.py` (39 lines)
+  - `services/api/routes/__init__.py` (1 line)
+  - `services/api/routes/health.py` (26 lines)
+  - `services/api/routes/auth.py` (218 lines; total `services/api` = 756 lines <= 1100 budget)
+  - `tests/unit/api/__init__.py` (1 line)
+  - `tests/unit/api/test_schemas_and_auth.py` (65 lines)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (22 passed in 1.56s)
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 16 source files)
+  $ wsl -d Ubuntu -- wc -l /mnt/e/CyberVault/Cyber_Vault/services/api/*.py /mnt/e/CyberVault/Cyber_Vault/services/api/routes/*.py -> 0 (756 total)
+TESTS: 22/22 unit tests passed (`tests/unit/core` + `tests/unit/api`); T-AUTH-01..05 against real PostgreSQL/HTTPS not yet run
+VERIFIED FACTS:
+  - Input schemas forbid extra fields (`extra="forbid"`); `EnvCreate` restricts `template` to `"app-target"`.
+  - Argon2id PHC string starts with `$argon2id$` and includes `m=19456,t=2,p=1`; CSPRNG session token decodes to 32 bytes; SHA-256 digest is 64 hex chars.
+  - Middleware sets `X-Request-ID`, `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, and canonical error envelopes for 401/422/500 without leaking stack traces.
+  - PyPI verified for `fastapi==0.165.0`, `uvicorn==0.54.0`, `argon2-cffi==25.1.0`, `python-multipart==0.0.34`, `PyYAML==6.0.4`, `httpx==0.28.1`, `types-PyYAML==6.0.12.20261122`.
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL execution of `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, lockout, and `healthz` `db=true` is unverified until PostgreSQL is available.
+  - Remaining 27 rules in `contracts/rbac_matrix.yaml` (`R04`–`R30`) are not yet registered (per `docs/16_BUILD_NOW_HOST_LATER.md`, no 501 stubs).
+DEGRADED PATHS: none
+NEW DEPENDENCIES (allowlisted, PyPI-verified, pending `evidence/VERSIONS.lock`):
+  - `fastapi==0.165.0`, `uvicorn==0.54.0`, `argon2-cffi==25.1.0`, `python-multipart==0.0.34`, `PyYAML==6.0.4`, `httpx==0.28.1`, `types-PyYAML==6.0.12.20261122`
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - `services/api` is at 756/1100 lines; will keep A3–A6 compact and refactor shared SQL helpers in A7 to stay within the 1100-line ceiling.
+NEXT: A3 (`authz.py` RBAC matrix engine + `users`/`teams`/`templates` routes `R04`–`R10`), while continuing 5-min checks on `origin/integration`.
+
