@@ -41,3 +41,36 @@ none of the four `team/<name>/CLAUDE.local.md` files was tracked in the baseline
 `git check-ignore -v CLAUDE.local.md` reports the root rule; `git check-ignore -v team/henil/CLAUDE.local.md`
 has no output, meaning the distributable template is no longer ignored. `git diff --cached --check` exited 0.
 No application implementation or runtime/security test is claimed by this repository setup fix.
+
+## 2026-11-26 · Real local PostgreSQL integration slice
+
+Task: M1 database initialization, local development evidence only. Host: Manas Windows machine with Docker Desktop
+29.8.1, not the Linux demo host. Database: official `postgres:16` image at digest
+`sha256:07abc3f43c9395b0bdbbab36bc25ddb0e8d83cd4fcafb5fb7d6abe14ff156dd8`, reporting PostgreSQL 16.16.
+Container `abh-local-db` uses a named data volume and publishes only `127.0.0.1:15432` for local testing.
+Generated owner/API/runner/notary passwords in ignored `secrets/`; no values were printed or committed.
+
+Changed: `db/init/01-schema-and-roles.sh` applies frozen `contracts/schema.sql` once and sets passwords for the three
+runtime roles from secret files. No schema or owner feature code changed.
+
+Observed checks:
+- Docker daemon and PostgreSQL container started; initialization log shows the schema and three `ALTER ROLE` commands.
+- `docker exec ... sh -n /docker-entrypoint-initdb.d/01-schema-and-roles.sh` exited 0.
+- Real PostgreSQL has 9 public tables and roles `abh_api`, `abh_runner`, `abh_notary`.
+- `has_table_privilege` shows all three can SELECT/INSERT audit_log and none can UPDATE/DELETE it.
+- `pg_isready` reported accepting connections; Windows loopback port 15432 is reachable.
+- A host-side connection with an incorrect `abh_api` password was rejected. Container-local loopback uses PostgreSQL
+  image trust rules, so only the host-side rejection is used as password evidence.
+- A temporary read-only checkout of Henil commit `7b4f792` ran `pytest tests/unit -q`: 22 passed, exit 0.
+- Against the live database, 50 concurrent calls to Henil's actual `audit.append` produced seq 1..50 with no gaps;
+  all stored `prev_hash` links and recomputed record hashes matched. The temporary test exited 0.
+- After `docker restart abh-local-db`, `pg_isready` passed and the 50 rows persisted.
+
+Blocking defect found in Henil's real API slice: a live `GET /api/v1/healthz` returned 200 with
+`{"status":"ok","db":true}`. A real unknown-email `POST /api/v1/auth/login` returned 401, but the audit row count
+increased by 0; the contract requires one denied record. The temporary test failed on that assertion. In
+`services/api/routes/auth.py`, the denied append occurs inside a transaction that exits by raising `ApiError`,
+which rolls back the append. Henil owns the fix; no API code was changed here.
+
+Status: local DB initialization and core append evidence passed. M1 full stack, G0, T-AUTH contract suite, sandbox,
+and security acceptance remain open. No mock, stub, simulation or Linux-host pass is claimed.
