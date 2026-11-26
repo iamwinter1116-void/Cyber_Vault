@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import platform
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -41,7 +43,7 @@ def test_t_iso_02_sandbox_profile(stack_url: str) -> None:
             assert req in labels
 
 
-def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: pytest.FixtureRequest) -> None:
+def test_t_iso_03_cross_team_network_isolation(stack_url: str) -> None:
     """T-ISO-03: Alpha toolbox cannot TCP connect/ICMP/DNS to bravo containers."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
@@ -54,10 +56,12 @@ def test_t_iso_03_cross_team_network_isolation(stack_url: str, record_property: 
         tcp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {ip} 80 3")["result"]["output"].strip().splitlines()[-1])
         assert tcp["reachable"] is False, f"Cross-team TCP reachability succeeded to {ip}"
         icmp = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_icmp {ip} 3")["result"]["output"].strip().splitlines()[-1])
-        if icmp.get("sent"):
-            assert icmp["reachable"] is False, f"Cross-team ICMP reachability succeeded to {ip}"
-        else:
-            record_property("icmp_note", f"ICMP not testable under cap_drop=ALL for {ip}: {icmp.get('error')}")
+        if not icmp.get("sent"):
+            pytest.fail(
+                f"T-ISO-03 ICMP probe could not send under cap_drop=ALL for {ip}: {icmp.get('error')} "
+                "(requires docs/06_VERIFICATION.md CR; cannot report ICMP isolation as green)"
+            )
+        assert icmp["reachable"] is False, f"Cross-team ICMP reachability succeeded to {ip}"
     for c in bravo_containers:
         cname = c["Name"].lstrip("/")
         dns = json.loads(exec_in_env(ca, csrfa, env_a["id"], f"probe_dns {cname} 3")["result"]["output"].strip().splitlines()[-1])
@@ -70,14 +74,25 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
     env_a = create_env_and_wait(ca, csrfa, "iso-04-alpha")
     lan_ip = os.environ.get("ABH_HOST_LAN_IP", "")
     assert lan_ip and lan_ip != "127.0.0.1", "ABH_HOST_LAN_IP must be set to the host LAN IP (not 127.0.0.1)"
-    gw_ips = {
-        net["Gateway"] or (net["IPAddress"].rsplit(".", 1)[0] + ".1")
+    net_names = {
+        net_name
         for c in docker_managed_inspect()
         if c["Config"]["Labels"].get("abh.env_id") == env_a["id"]
-        for net in c["NetworkSettings"]["Networks"].values()
-        if net.get("Gateway") or net.get("IPAddress")
+        for net_name in c["NetworkSettings"]["Networks"]
     }
-    assert gw_ips, "No container gateway/subnet IP found to test in T-ISO-04"
+    assert net_names, "No Docker networks found for alpha env"
+    insp_net = subprocess.run(["docker", "network", "inspect", *sorted(net_names)], capture_output=True, text=True, check=False)
+    assert insp_net.returncode == 0, f"docker network inspect failed: {insp_net.stderr}"
+    gw_ips: set[str] = set()
+    for n in json.loads(insp_net.stdout):
+        for cfg in (n.get("IPAM") or {}).get("Config") or []:
+            if cfg.get("Gateway"):
+                gw_ips.add(cfg["Gateway"])
+        if not gw_ips:
+            assert n.get("Internal") is True, f"Network {n.get('Name')} has no gateway and is not internal"
+            assert (n.get("Options") or {}).get("com.docker.network.bridge.gateway_mode_ipv4") == "isolated", (
+                f"Network {n.get('Name')} has no gateway and is not isolated mode"
+            )
     targets = [(gw, p) for gw in gw_ips for p in (443, 5432, 8000)] + [
         (lan_ip, 443), (lan_ip, 5432), (lan_ip, 8000), ("1.1.1.1", 53), ("1.1.1.1", 443),
     ]
@@ -93,7 +108,6 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
         data={"detonate": "true"},
     )
     assert r_det.status_code == 202
-    import time
     jid = r_det.json()["id"]
     for _ in range(90):
         jr = ca.get(f"{API_BASE}/jobs/{jid}").json()
@@ -119,11 +133,22 @@ def test_t_iso_05_cross_team_api_returns_404(stack_url: str) -> None:
     assert ca.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfa}).status_code == 404
     assert ca.delete(f"{API_BASE}/envs/{bid}", headers={"X-CSRF-Token": csrfa}).status_code == 404
     assert ca.post(f"{API_BASE}/envs/{bid}/exec", headers={"X-CSRF-Token": csrfa}, json={"command": "id"}).status_code == 404
-    with ca.stream("GET", f"{API_BASE}/stream") as stream:
-        cb.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfb})
-        for line in stream.iter_lines():
+    with cb.stream("GET", f"{API_BASE}/stream") as bravo_stream, ca.stream("GET", f"{API_BASE}/stream") as alpha_stream:
+        assert cb.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfb}).status_code == 202
+        bravo_saw_event = False
+        b_deadline = time.monotonic() + 5.0
+        for line in bravo_stream.iter_lines():
+            if bid in line:
+                bravo_saw_event = True
+                break
+            if time.monotonic() > b_deadline:
+                break
+        assert bravo_saw_event, f"Control failed: bravo stream did not emit event for {bid}"
+
+        a_deadline = time.monotonic() + 5.0
+        for line in alpha_stream.iter_lines():
             assert bid not in line, f"Cross-team stream leaked bravo env {bid}"
-            if line.startswith("event: heartbeat"):
+            if time.monotonic() > a_deadline:
                 break
 
 
