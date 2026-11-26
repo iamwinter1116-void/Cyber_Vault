@@ -434,3 +434,43 @@ STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule 
   built (CR proposed); B7 blocked by the O9 CR.
 NEXT: after approvals, B2 probes + target app + Dockerfiles in sandbox/; then the Linux test window.
 ```
+
+## 2026-11-26 · Review of Bhavya's probe-facing tests (6d71266) + probe contract v2 · this commit
+
+```
+TASK: Manas's request: review Bhavya's probe-facing changes against the B2 contract. No runner code changed.
+STATUS: review done; contract v2 written (team/parth/work/PROBE_CONTRACT.md). Image CR and budget CR remain
+  AWAITING ALL FOUR APPROVALS; no image pulled or built; Python probe language not treated as approved.
+SYNC: `git merge --ff-only origin/integration` -> exit 0 at 33e3b84; my paths unchanged by it.
+EVIDENCE RECEIVED: Manas handoff line 236: on 7f86459, six pure modules -> 50 passed; live_pg_suite on a fresh
+  disposable abhedya_test -> 14 passed in 2.49s, exit 0; project removed.
+REVIEWED: origin/work/bhavya 6d71266 (newer than b6491f2; unmerged), tests/security/*.py, by reading the code:
+  Matches the contract and the runner: T-ISO-03 now FAILS when probe_icmp reports sent=false (no unsent probe
+  counted as proof); T-ISO-04 needs ABH_HOST_LAN_IP != 127.0.0.1, reads IPAM gateways, and when none exists
+  requires Internal=true and option com.docker.network.bridge.gateway_mode_ipv4=isolated - exactly what
+  launch.network_create_kwargs sets; T-ISO-06 requires a mounts list; T-WL-02 requires the detonation probe to
+  exit 0 with reachable=false; T-MON-04 pages /events with after_id and compares the exact 10 replayed ids
+  (relies on the runner's one job.finished activity event per exec job, covered by live_pg_suite).
+  Gaps found (her files; reported, not edited):
+  1. T-RES-03 asserts only exit_code != 0. Without a working quota, disk_fill runs until the runner's 60 s
+     deadline kills it (exit 137), so a missing quota would PASS. Contract v2 gives errno/bytes_written.
+  2. T-RES-01 asserts only exit_code != 0; docs/06 also requires alert.oom_killed within 5 s, env.oom_killed
+     audited, neighbour 1 s loop missing at most one beat. Runner interaction (UNVERIFIED): if runsc OOM kills
+     the whole sandbox, collect.on_die marks the env failed and the reaper removes it; the exec job then ends
+     as error with result {"error": ...} and no exit_code key, so job["result"]["exit_code"] raises KeyError.
+  3. T-RES-02 samples /healthz once; docs/06 says "for 30 s" and "afterwards the environment stops and is
+     removed within 15 s". The runner has no rule that stops an env after a fork bomb; my reading is that the
+     test deletes the env and the runner removes it within 15 s (reconcile polls every 1 s) - needs agreement.
+  4. T-WL-01 checks connect, docs/06 says the name "does not resolve": probe_dns would test that directly.
+  5. T-ISO-06 does not check that the write error is a read-only error (docs/06); probe_write carries errno.
+  6. Planning dependency: T-ISO-04's detonator-interface check needs B6 detonation, while docs/02 cut 5 allows
+     cutting detonation and B6 is blocked by the runner budget CR. It also needs /sys/class/net inside runsc
+     (UNVERIFIED).
+HOST MEASUREMENTS TO KEEP OPEN (not facts): V1 same-path bind mount; runner non-root user via the measured
+  socket gid; unprivileged ICMP under runsc; /sys/class/net under runsc; runsc OOM scope.
+STANDING OPEN ITEMS: budget 850/800 is an open issue (CR proposed, not approved; 1000 is not permission to
+  grow; any B6 work waits for the decision and is measured as it grows); images not built; B5 in-sandbox exec checks pending; every Docker/runsc call
+  unverified; pids_limit per container is an interpretation; B7 blocked by the O9 CR. No gate/objective green.
+NEXT: wait for the four-person decisions; then B2 probes + target app per PROBE_CONTRACT.md, local output tests,
+  then the Linux test window.
+```
