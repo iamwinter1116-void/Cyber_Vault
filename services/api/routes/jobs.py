@@ -121,6 +121,12 @@ def get_job(job_id: UUID, auth: Annotated[ScopedAuth, Depends(authorize("R19"))]
     return job
 
 
+def _record_quota_denial(auth: ScopedAuth, exc: ApiError) -> None:
+    reason = {"QUOTA_EXCEEDED": "quota_exceeded", "CONFLICT": "duplicate_name"}.get(exc.code)
+    if reason is not None:
+        record_denied(auth.ctx, auth.rule, target_type="env", target_id="", reason=reason)
+
+
 @router.post("/files", status_code=202, response_model=JobOut)
 async def submit_file(
     auth: Annotated[ScopedAuth, Depends(authorize("R20"))],
@@ -132,37 +138,35 @@ async def submit_file(
     digest, size_bytes = await stream_to_quarantine(file, Path(cfg.quarantine_dir))
     filename = Path(file.filename or "sample").name[:128]
     job_input = {"sha256": digest, "filename": filename, "size_bytes": size_bytes, "detonate": detonate}
-    with auth.ctx.transaction() as conn:
-        env = create_env_with_quota(
-            conn,
-            auth,
-            cfg,
-            name=f"file-{uuid.uuid4().hex[:8]}",
-            template="file-analysis",
-            size="S",
-            ttl_minutes=10,
-        )
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO job (kind, env_id, team_id, requested_by, input) "
-                f"VALUES ('file_analysis', %s, %s, %s, %s::jsonb) RETURNING {_JOB_COLS}",
-                (env.id, env.team_id, auth.ctx.user.id, json.dumps(job_input)),
+    try:
+        with auth.ctx.transaction() as conn:
+            env = create_env_with_quota(
+                conn, auth, cfg, name=f"file-{uuid.uuid4().hex[:8]}", template="file-analysis", size="S", ttl_minutes=10
             )
-            jrow = cur.fetchone()
-            assert jrow is not None
-        job = _row_to_job(jrow)
-        audit_append(
-            conn,
-            actor=auth.ctx.actor,
-            action="file.submit",
-            target_type="job",
-            target_id=str(job.id),
-            outcome="success",
-            ip=auth.ctx.ip,
-            request_id=auth.ctx.request_id,
-            detail={"sha256": digest, "size_bytes": size_bytes, "detonate": detonate},
-        )
-        return job
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO job (kind, env_id, team_id, requested_by, input) "
+                    f"VALUES ('file_analysis', %s, %s, %s, %s::jsonb) RETURNING {_JOB_COLS}",
+                    (env.id, env.team_id, auth.ctx.user.id, json.dumps(job_input)),
+                )
+                jrow = cur.fetchone()
+                assert jrow is not None
+            job = _row_to_job(jrow)
+            audit_append(
+                conn,
+                actor=auth.ctx.actor,
+                action="file.submit",
+                target_type="job",
+                target_id=str(job.id),
+                outcome="success",
+                ip=auth.ctx.ip,
+                request_id=auth.ctx.request_id,
+                detail={"sha256": digest, "size_bytes": size_bytes, "detonate": detonate},
+            )
+            return job
+    except ApiError as exc:
+        _record_quota_denial(auth, exc)
+        raise
 
 
 @router.post("/ai-scans", status_code=202, response_model=JobOut)
@@ -173,34 +177,32 @@ def start_ai_scan(
     """Create M ai-redteam env + queued ai_scan job."""
     cfg = Settings()
     job_input = {"target": body.target, "probe_set": body.probe_set}
-    with auth.ctx.transaction() as conn:
-        env = create_env_with_quota(
-            conn,
-            auth,
-            cfg,
-            name=f"ai-{uuid.uuid4().hex[:8]}",
-            template="ai-redteam",
-            size="M",
-            ttl_minutes=10,
-        )
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO job (kind, env_id, team_id, requested_by, input) "
-                f"VALUES ('ai_scan', %s, %s, %s, %s::jsonb) RETURNING {_JOB_COLS}",
-                (env.id, env.team_id, auth.ctx.user.id, json.dumps(job_input)),
+    try:
+        with auth.ctx.transaction() as conn:
+            env = create_env_with_quota(
+                conn, auth, cfg, name=f"ai-{uuid.uuid4().hex[:8]}", template="ai-redteam", size="M", ttl_minutes=10
             )
-            jrow = cur.fetchone()
-            assert jrow is not None
-        job = _row_to_job(jrow)
-        audit_append(
-            conn,
-            actor=auth.ctx.actor,
-            action="ai.scan_start",
-            target_type="job",
-            target_id=str(job.id),
-            outcome="success",
-            ip=auth.ctx.ip,
-            request_id=auth.ctx.request_id,
-            detail={"target": body.target, "probe_set": body.probe_set},
-        )
-        return job
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO job (kind, env_id, team_id, requested_by, input) "
+                    f"VALUES ('ai_scan', %s, %s, %s, %s::jsonb) RETURNING {_JOB_COLS}",
+                    (env.id, env.team_id, auth.ctx.user.id, json.dumps(job_input)),
+                )
+                jrow = cur.fetchone()
+                assert jrow is not None
+            job = _row_to_job(jrow)
+            audit_append(
+                conn,
+                actor=auth.ctx.actor,
+                action="ai.scan_start",
+                target_type="job",
+                target_id=str(job.id),
+                outcome="success",
+                ip=auth.ctx.ip,
+                request_id=auth.ctx.request_id,
+                detail={"target": body.target, "probe_set": body.probe_set},
+            )
+            return job
+    except ApiError as exc:
+        _record_quota_denial(auth, exc)
+        raise

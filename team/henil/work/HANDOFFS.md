@@ -332,3 +332,17 @@ VERIFIED FACTS:
   - O9 `AiScanRequest` (`Literal["stub-vulnerable", "stub-guarded"]` in `services/api/schemas.py:154`) remains untouched pending the four-person O9 CR.
 NEXT: Continue 5-min checks on `origin/integration` (`task-799`).
 
+## 2026-11-27 · Phase 2 local hardening (`users.py`, `jobs.py` post-rollback `record_denied`)
+
+TASK: Website-first local demo Phase 2 (deadlock-safe refusal auditing in `users.py` and `jobs.py`)
+STATUS: synced with `origin/integration` (`59e49dc`); ready for PR #27 merge
+CHANGED:
+  - `services/api/routes/users.py` (`update_user` `BR1`/`BR2` `record_denied()` moved to `except ApiError:` after `FOR UPDATE` txn exit)
+  - `services/api/routes/jobs.py` (`submit_file` `R20` and `start_ai_scan` `R21` quota/conflict `record_denied()` moved to `except ApiError:` after `team` `FOR UPDATE` txn exit)
+COMMANDS RUN (with exit codes):
+  $ ruff check core services/api services/notary tests/unit/{core,api,notary} -> 0 (All checks passed!)
+  $ mypy --strict ... -> 0 (Success: no issues found in 34 source files)
+  $ pytest tests/unit/{core,api,notary} tests/contract/test_audit_vectors.py -q -> 0 (58 passed in 8.12s)
+TESTS: 58/58 local unit + audit-vector tests passed; live PostgreSQL / website E2E pending PR #27 merge & disposable DB run
+NEXT: Continue 5-min checks (`task-839`) for PR #27 landing on `origin/integration`.
+

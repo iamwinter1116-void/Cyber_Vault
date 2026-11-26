@@ -102,57 +102,61 @@ def update_user(
     auth: Annotated[ScopedAuth, Depends(authorize("R06"))],
 ) -> UserOut:
     """Update user role/team/disabled/password enforcing BR1 and BR2."""
-    with auth.ctx.transaction() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, email, role, team_id, disabled, "
-            "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') "
-            "FROM app_user WHERE id = %s FOR UPDATE",
-            (user_id,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            raise ApiError("NOT_FOUND", 404, "User not found")
-        cur_role = str(row[2])
-        cur_team = cast(UUID | None, row[3])
-        cur_disabled = bool(row[4])
+    try:
+        with auth.ctx.transaction() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, email, role, team_id, disabled, "
+                "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') "
+                "FROM app_user WHERE id = %s FOR UPDATE",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise ApiError("NOT_FOUND", 404, "User not found")
+            cur_role = str(row[2])
+            cur_team = cast(UUID | None, row[3])
+            cur_disabled = bool(row[4])
 
-        new_role = body.role if body.role is not None else cur_role
-        new_disabled = body.disabled if body.disabled is not None else cur_disabled
-        new_team = body.team_id if "team_id" in body.model_fields_set else cur_team
+            new_role = body.role if body.role is not None else cur_role
+            new_disabled = body.disabled if body.disabled is not None else cur_disabled
+            new_team = body.team_id if "team_id" in body.model_fields_set else cur_team
 
-        if user_id == auth.ctx.user.id and new_role != cur_role:
-            record_denied(auth.ctx, auth.rule, target_type="user", target_id=str(user_id), reason="self_role_change")
-            raise ApiError("SELF_ROLE_CHANGE", 409, "Cannot change your own role")
-        if cur_role == "admin" and not cur_disabled and (new_role != "admin" or new_disabled):
-            cur.execute("SELECT count(*) FROM app_user WHERE role = 'admin' AND NOT disabled AND id <> %s", (user_id,))
-            cnt_row = cur.fetchone()
-            if cnt_row is not None and cnt_row[0] == 0:
-                record_denied(auth.ctx, auth.rule, target_type="user", target_id=str(user_id), reason="last_admin")
-                raise ApiError("LAST_ADMIN", 409, "Cannot disable or demote the last enabled admin")
-        if (new_role in ("admin", "auditor")) != (new_team is None):
-            raise ApiError("VALIDATION", 422, "Platform roles require team_id=null; team roles require team_id")
+            if user_id == auth.ctx.user.id and new_role != cur_role:
+                raise ApiError("SELF_ROLE_CHANGE", 409, "Cannot change your own role")
+            if cur_role == "admin" and not cur_disabled and (new_role != "admin" or new_disabled):
+                cur.execute("SELECT count(*) FROM app_user WHERE role = 'admin' AND NOT disabled AND id <> %s", (user_id,))
+                cnt_row = cur.fetchone()
+                if cnt_row is not None and cnt_row[0] == 0:
+                    raise ApiError("LAST_ADMIN", 409, "Cannot disable or demote the last enabled admin")
+            if (new_role in ("admin", "auditor")) != (new_team is None):
+                raise ApiError("VALIDATION", 422, "Platform roles require team_id=null; team roles require team_id")
 
-        if body.password is not None:
-            cur.execute("UPDATE app_user SET password_hash = %s WHERE id = %s", (hash_password(body.password), user_id))
-        cur.execute(
-            "UPDATE app_user SET role = %s, team_id = %s, disabled = %s WHERE id = %s "
-            "RETURNING id, email, role, team_id, disabled, "
-            "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
-            (new_role, new_team, new_disabled, user_id),
-        )
-        updated = cur.fetchone()
-        assert updated is not None
-        if new_disabled or new_role != cur_role:
-            cur.execute("DELETE FROM session WHERE user_id = %s", (user_id,))
-        audit_append(
-            conn,
-            actor=auth.ctx.actor,
-            action="user.update",
-            target_type="user",
-            target_id=str(user_id),
-            outcome="success",
-            ip=auth.ctx.ip,
-            request_id=auth.ctx.request_id,
-            detail={"role": new_role, "disabled": new_disabled},
-        )
-        return _row_to_user(updated)
+            if body.password is not None:
+                cur.execute("UPDATE app_user SET password_hash = %s WHERE id = %s", (hash_password(body.password), user_id))
+            cur.execute(
+                "UPDATE app_user SET role = %s, team_id = %s, disabled = %s WHERE id = %s "
+                "RETURNING id, email, role, team_id, disabled, "
+                "to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
+                (new_role, new_team, new_disabled, user_id),
+            )
+            updated = cur.fetchone()
+            assert updated is not None
+            if new_disabled or new_role != cur_role:
+                cur.execute("DELETE FROM session WHERE user_id = %s", (user_id,))
+            audit_append(
+                conn,
+                actor=auth.ctx.actor,
+                action="user.update",
+                target_type="user",
+                target_id=str(user_id),
+                outcome="success",
+                ip=auth.ctx.ip,
+                request_id=auth.ctx.request_id,
+                detail={"role": new_role, "disabled": new_disabled},
+            )
+            return _row_to_user(updated)
+    except ApiError as exc:
+        reason = {"SELF_ROLE_CHANGE": "self_role_change", "LAST_ADMIN": "last_admin"}.get(exc.code)
+        if reason is not None:
+            record_denied(auth.ctx, auth.rule, target_type="user", target_id=str(user_id), reason=reason)
+        raise
