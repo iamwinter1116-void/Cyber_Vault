@@ -1,6 +1,6 @@
 # ABHEDYA progress scorecard · 26 November 2026
 
-Snapshot: `integration` at `0a664f9`. `main` remains at `6dc40c8`.
+Snapshot: `integration` at `431ed43`. `main` remains at `6dc40c8`.
 
 ## What the percentages mean
 
@@ -29,11 +29,12 @@ passed a new real PostgreSQL test.
 
 ## Evidence and immediate gaps
 
-- PRs #1–#6 merged into `integration`. PR #2's runner head passed 44 dependency-free tests independently
+- PRs #1–#7 and #9 merged into `integration`; superseded conflicting PR #8 was closed. PR #2's runner head passed 44 dependency-free tests independently
   on Manas's Windows host. The runner's 10 real PostgreSQL tests and all Docker/runsc tests remain unrun.
-- Henil's API/notary code through `bcaa3bb` is merged. Later `test_pg_routes.py` was deliberately excluded:
-  it can disable audit triggers and truncate a database without a disposable-database guard, and uses one
-  DSN for setup and API runtime. Henil must make it safe before Manas runs it.
+- Henil's API/notary code through `bcaa3bb` and his replacement `live_pg_suite.py` are merged. The original
+  `test_pg_routes.py` was excluded because it could disable audit triggers and truncate a database without a
+  disposable-database guard. The replacement requires explicit opt-in and separate owner/API/notary role DSNs;
+  its real PostgreSQL run remains pending.
 - Bhavya's verifier-side vector selection independently passed 22 tests; 7 core-side tests were not run in
   that invocation. Her live contract/security/e2e suites remain pending. T-ISO-03 currently permits an
   unsent ICMP probe while reporting the test green, so it cannot yet establish the full T-ISO-03 condition.
