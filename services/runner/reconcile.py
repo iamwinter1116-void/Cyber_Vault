@@ -25,9 +25,10 @@ Conn = psycopg.Connection[tuple[object, ...]]
 Pool = ConnectionPool[Conn]
 log = logging.getLogger("abh.runner")
 
-CLAIM_SQL = """
-SELECT id::text, team_id::text, template, cpu_millis, mem_mb, storage_mb, pids_limit,
-       observed_state, desired_state, expires_at <= now()
+ENV_COLS = ("id::text, team_id::text, template, cpu_millis, mem_mb, storage_mb, pids_limit, observed_state, "
+            "desired_state, expires_at <= now()")
+CLAIM_SQL = f"""
+SELECT {ENV_COLS}
   FROM env
  WHERE observed_state <> 'destroyed'
    AND (observed_state <> desired_state OR expires_at <= now())
@@ -45,7 +46,7 @@ ACTIVITY_SQL = """
 INSERT INTO activity_event (team_id, env_id, severity, kind, message, data)
 VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s)
 """
-LIVE_SQL = "SELECT id::text FROM env WHERE observed_state <> 'destroyed' AND id::text = ANY(%s)"
+LIVE_SQL = "SELECT id::text FROM env WHERE observed_state NOT IN ('destroyed', 'failed') AND id::text = ANY(%s)"
 CHANGED = (("env.state_changed", "info"),)
 
 
@@ -64,11 +65,11 @@ class Claimed:
     step: Step
 
 
-def _actor(env: EnvRow) -> Actor:
+def actor(env: EnvRow) -> Actor:
     return Actor(type="service", id="runner", team_id=env.team_id)
 
 
-def _event(conn: Conn, env: EnvRow, kind: str, severity: str, message: str, data: Mapping[str, object]) -> None:
+def event(conn: Conn, env: EnvRow, kind: str, severity: str, message: str, data: Mapping[str, object]) -> None:
     conn.execute(ACTIVITY_SQL, (env.team_id, env.id, severity, kind, message, Jsonb(dict(data))))
 
 
@@ -80,14 +81,14 @@ def record(conn: Conn, env: EnvRow, old: str, new: str, action: str | None, acti
         return False
     data: dict[str, object] = {"from": old, "to": new, **(detail or {})}
     if action is not None:
-        append(conn, actor=_actor(env), action=action, target_type="env", target_id=env.id, outcome=outcome,
+        append(conn, actor=actor(env), action=action, target_type="env", target_id=env.id, outcome=outcome,
                detail=data)
     for kind, severity in activity:
-        _event(conn, env, kind, severity, f"{kind}: {old} -> {new}" + (f" ({reason})" if reason else ""), data)
+        event(conn, env, kind, severity, f"{kind}: {old} -> {new}" + (f" ({reason})" if reason else ""), data)
     return True
 
 
-def _env(row: tuple[object, ...]) -> tuple[EnvRow, str, str, bool]:
+def env_row(row: tuple[object, ...]) -> tuple[EnvRow, str, str, bool]:
     s, n = (lambda i: cast(str, row[i])), (lambda i: cast(int, row[i]))
     return EnvRow(s(0), s(1), s(2), n(3), n(4), n(5), n(6)), s(7), s(8), bool(row[9])
 
@@ -96,7 +97,7 @@ def claim(pool: Pool, limit: int = 20) -> list[Claimed]:
     out: list[Claimed] = []
     with transaction(pool) as conn:
         for row in conn.execute(CLAIM_SQL, (limit,)).fetchall():
-            env, observed, desired, expired = _env(row)
+            env, observed, desired, expired = env_row(row)
             step = decide(observed, desired, expired)
             if step is None:
                 continue
@@ -125,9 +126,9 @@ def _provision(pool: Pool, ops: DockerWork, c: Claimed) -> None:
         written = record(conn, c.env, c.observed, "running", c.step.audit_action, c.step.activity,
                          tier=choice.isolation_tier, reason="", detail=detail)
         if written and choice.degraded:
-            append(conn, actor=_actor(c.env), action="isolation.degraded", target_type="env", target_id=c.env.id,
+            append(conn, actor=actor(c.env), action="isolation.degraded", target_type="env", target_id=c.env.id,
                    outcome="success", detail={**detail, "profile": "T0.H1.N2"})
-            _event(conn, c.env, "alert.isolation_degraded", "critical",
+            event(conn, c.env, "alert.isolation_degraded", "critical",
                    "isolation degraded: runc-hardened instead of gVisor, profile T0.H1.N2", detail)
 
 
@@ -159,7 +160,8 @@ def reap(pool: Pool, ops: DockerWork) -> set[str]:
     """Remove labelled objects whose env row is destroyed or missing (docs/08 section 3, every 30 s).
 
     Also: managed objects with no valid abh.env_id (removed outright) and V1 image files whose env is not live.
-    A live row (requested, provisioning, running, stopped, failed) keeps its objects and image."""
+    A failed row is terminal (no start route), so its leftovers are retried here every pass until gone; the row
+    stays failed. Live rows (requested, provisioning, running, stopped) keep their objects and image."""
     unowned = ops.remove_unowned()
     if unowned:
         log.warning("reaper removed %d abh.managed objects without a valid abh.env_id", unowned)

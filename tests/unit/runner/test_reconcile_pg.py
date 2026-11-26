@@ -1,12 +1,14 @@
-"""Reconciler SQL against real PostgreSQL with contracts/schema.sql applied. No Docker is involved or replaced:
-only claim(), record() and the reaper's liveness query run here; apply() and reap() need the Linux host.
+"""Runner SQL against real PostgreSQL with contracts/schema.sql applied. No Docker is involved or replaced:
+claim(), record(), the reaper's liveness query and the collector's DB writes (samples, NOTIFY, alerts, OOM,
+unexpected exit) run here; apply(), reap(), the stats sampler and the events stream need the Linux host.
 
-Needs psycopg, psycopg-pool, pydantic-settings and core.abh_core (Henil's branch) importable, and:
+Needs docker (imported by collect.py, no daemon used), psycopg, psycopg-pool, pydantic-settings, and:
   ABH_TEST_OWNER_DSN   owner role: inserts the team/user/env fixtures the runner role may not insert
   ABH_TEST_RUNNER_DSN  abh_runner role: everything the runner code does
 WARNING: audit_log is append-only, so each run leaves permanent env.* audit rows. Use a disposable database.
 """
 
+import json
 import os
 import unittest
 import uuid
@@ -19,14 +21,14 @@ if not DSN_OWNER or not DSN_RUNNER:
 import psycopg  # noqa: E402
 from core.abh_core.audit import record_hash  # noqa: E402
 from core.abh_core.db import create_pool, transaction  # noqa: E402
-from services.runner import reconcile  # noqa: E402
+from services.runner import collect, reconcile  # noqa: E402
 from services.runner.state import Work  # noqa: E402
 
 BODY = ("v", "seq", "ts", "actor_type", "actor_id", "actor_role", "team_id", "action", "target_type", "target_id",
         "outcome", "ip", "request_id", "detail", "prev_hash")
 
 
-class ReconcileSQL(unittest.TestCase):
+class PgFixture(unittest.TestCase):
     pool: reconcile.Pool
 
     @classmethod
@@ -66,6 +68,9 @@ class ReconcileSQL(unittest.TestCase):
             assert r is not None
             return r
 
+
+
+class ReconcileSQL(PgFixture):
     def claimed(self) -> dict[str, reconcile.Claimed]:
         return {c.env.id: c for c in reconcile.claim(self.pool, limit=1000)}
 
@@ -123,11 +128,12 @@ class ReconcileSQL(unittest.TestCase):
         self.assertIn(env_id, self.claimed())
 
     def test_liveness_query_for_reaper(self) -> None:
-        live, gone = self.env("running", "running"), self.env("destroyed", "destroyed")
+        live, stopped = self.env("running", "running"), self.env("stopped", "stopped")
+        gone, failed = self.env("destroyed", "destroyed"), self.env("failed", "running")  # failed: retried cleanup
         missing = str(uuid.uuid4())
         with transaction(self.pool) as conn:
-            rows = conn.execute(reconcile.LIVE_SQL, ([live, gone, missing, "not-a-uuid"],)).fetchall()
-        self.assertEqual({r[0] for r in rows}, {live})
+            rows = conn.execute(reconcile.LIVE_SQL, ([live, stopped, gone, failed, missing, "not-a-uuid"],)).fetchall()
+        self.assertEqual({r[0] for r in rows}, {live, stopped})
 
     def test_runner_role_grants(self) -> None:
         with psycopg.connect(DSN_RUNNER) as conn:
@@ -139,6 +145,67 @@ class ReconcileSQL(unittest.TestCase):
             conn.rollback()
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):  # no UPDATE grant on audit_log
                 conn.execute("UPDATE audit_log SET ip = 'x' WHERE seq = (SELECT max(seq) FROM audit_log)")
+
+
+class CollectSQL(PgFixture):
+    SAMPLE = {"cpu_pct": 12.5, "mem_mb": 240.0, "storage_mb": 3.0, "pids": 4, "net_rx_bytes": 10, "net_tx_bytes": 20}
+
+    def env_row(self, env_id: str) -> reconcile.EnvRow:
+        return reconcile.EnvRow(env_id, self.team, "app-target", 500, 256, 128, 128)
+
+    def count(self, sql: str, *args: object) -> int:
+        return int(str(self.row(sql, *args)[0]))
+
+    def test_sample_insert_notify_and_prune(self) -> None:
+        env_id = self.env("running", "running")
+        with psycopg.connect(DSN_OWNER, autocommit=True) as o:
+            o.execute("INSERT INTO metric_sample (env_id, ts, cpu_pct, mem_mb, storage_mb, pids, net_rx_bytes,"
+                      " net_tx_bytes) VALUES (%s, now() - interval '2 hours', 1, 1, 1, 1, 1, 1)", (env_id,))
+            o.execute("LISTEN abh_metric")
+            with transaction(self.pool) as conn:
+                collect.write_sample(conn, self.env_row(env_id), self.SAMPLE)
+            got = [n.payload for n in o.notifies(timeout=5, stop_after=1)]
+        data = json.loads(got[0])
+        self.assertEqual(data["env_id"], env_id)
+        self.assertEqual({k: data[k] for k in self.SAMPLE}, self.SAMPLE)
+        self.assertTrue(data["ts"].endswith("Z"))
+        with transaction(self.pool) as conn:
+            conn.execute(collect.PRUNE_SQL)
+        self.assertEqual(self.count("SELECT count(*) FROM metric_sample WHERE env_id = %s", env_id), 1)
+
+    def test_mem_high_once_per_five_minutes(self) -> None:
+        env_id = self.env("running", "running")  # 240 of 256 MB is 93.75 %
+        raised = []
+        for _ in range(4):  # separate transactions: metric_sample's key is (env_id, ts) and now() is per transaction
+            with transaction(self.pool) as conn:
+                raised.append(collect.write_sample(conn, self.env_row(env_id), self.SAMPLE))
+        self.assertEqual(raised, [[], [], ["alert.mem_high"], []])
+        self.assertEqual(self.count("SELECT count(*) FROM activity_event WHERE env_id = %s AND kind = 'alert.mem_high'"
+                                    " AND severity = 'warn'", env_id), 1)
+
+    def test_oom_audit_and_alert_once(self) -> None:
+        env_id = self.env("running", "running")
+        self.assertTrue(collect.on_oom(self.pool, env_id, "abh-x-target"))
+        self.assertFalse(collect.on_oom(self.pool, env_id, "abh-x-target"))
+        self.assertEqual(self.row("SELECT action, outcome, detail FROM audit_log WHERE target_id = %s", env_id),
+                         ("env.oom_killed", "success", {"mem_limit_mb": 256}))
+        self.assertEqual(self.count("SELECT count(*) FROM activity_event WHERE env_id = %s AND kind ="
+                                    " 'alert.oom_killed' AND severity = 'critical'", env_id), 1)
+        self.assertFalse(collect.on_oom(self.pool, str(uuid.uuid4()), "abh-x-target"))  # no row: nothing written
+
+    def test_unexpected_die_fails_only_a_running_unexpired_env(self) -> None:
+        running = self.env("running", "running")
+        self.assertTrue(collect.on_die(self.pool, running, "abh-x-target", "137", True))
+        self.assertEqual(self.row("SELECT observed_state FROM env WHERE id = %s", running), ("failed",))
+        self.assertEqual(self.row("SELECT action, outcome FROM audit_log WHERE target_id = %s", running),
+                         ("env.failed", "error"))
+        self.assertFalse(collect.on_die(self.pool, running, "abh-x-target", "137", False))  # replayed event
+        for observed, desired, minutes in (("running", "stopped", 60), ("running", "destroyed", 60),
+                                           ("running", "running", -1), ("provisioning", "running", 60)):
+            env_id = self.env(observed, desired, minutes)
+            self.assertFalse(collect.on_die(self.pool, env_id, "abh-x-target", "0", False))
+            self.assertEqual(self.row("SELECT observed_state FROM env WHERE id = %s", env_id), (observed,))
+        self.assertFalse(collect.on_die(self.pool, str(uuid.uuid4()), "abh-x-target", "0", False))
 
 
 if __name__ == "__main__":

@@ -40,3 +40,14 @@ Status: NOT over budget yet. No overage line is claimed now. If a merged slice c
   lines are not removable. Before then: (1) Manas to fix the counting rule in check-fast; (2) reduce first:
   candidates are verbose validation messages in templates.py and launch.py, and docstrings that repeat the
   handoff (only if the rule counts docstrings).
+
+### Budget accounting update · after B4 local slice   2026-11-26 · owner B
+Measured (same two counts as above) with collect.py + metrics.py added and the failed-env reaper rule:
+  reconcile 176/135 · launch 175/119 · collect 165/124 · templates 114/86 · objects 107/85 · metrics 80/50 ·
+  storage 78/46 · state 58/38 · main 55/40 · total 1009 physical / 723 code.
+Under a physical-line rule the runner is now OVER 800 (by 209). Under a code-line rule it is at 723 (77 left).
+  Why not removed now: the counting rule is still undecided (Manas: check-fast); the excess under a physical
+  rule is mostly docstrings recording contract basis and unverified Docker behaviour, which the anti-
+  hallucination rules ask to keep next to the code. If the rule is physical lines, that is the first cut.
+Next: B5 (~60 code) fits a code-line rule; B6 local (~40) would reach ~823 code lines, so B6 starts only after
+  the rule is fixed or a reduction pass (verbose validation messages in templates.py/launch.py) is done.

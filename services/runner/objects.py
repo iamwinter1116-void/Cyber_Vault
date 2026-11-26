@@ -12,6 +12,7 @@ import docker.errors
 
 from services.runner import storage
 from services.runner.launch import (
+    MANAGED,
     EnvRow,
     RuntimeChoice,
     canonical_id,
@@ -23,8 +24,6 @@ from services.runner.launch import (
     volume_name,
 )
 from services.runner.templates import container_specs, load_template
-
-MANAGED = "abh.managed=true"
 
 
 class DockerOps:

@@ -18,6 +18,7 @@ CONTAINER_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
 SANDBOX_USER = "1000:1000"
 TMP_TMPFS = {"/tmp": "rw,noexec,nosuid,size=64m"}
 WORKSPACE = "/workspace"
+MANAGED = "abh.managed=true"  # label filter for every object the runner owns
 TMPFS_OPTS_RE = re.compile(r"^size=[1-9][0-9]*m,uid=1000,gid=1000$")
 
 

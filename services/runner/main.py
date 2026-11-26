@@ -1,12 +1,14 @@
 """Runner entry point: ``python -m services.runner.main`` from the repository root (docs/08 section 3).
 
 Reconciles every second and reaps every 30 s. Polling only: the contract names no NOTIFY channel for env
-changes, and a one-second poll is inside the 3 s state-visibility target of 04 section 6.
+changes, and a one-second poll is inside the 3 s state-visibility target of 04 section 6. The Docker events
+watcher and the metric sampler (collect.py) run in their own threads, each with its own Docker client.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from pathlib import Path
 
@@ -15,6 +17,7 @@ import docker
 from core.abh_core.db import create_pool
 from core.abh_core.settings import Settings
 from services.runner import storage
+from services.runner.collect import sample_forever, watch_events
 from services.runner.objects import DockerOps
 from services.runner.reconcile import reap, reconcile_once
 
@@ -29,6 +32,9 @@ def main() -> None:
     ops = DockerOps(docker.from_env(), runtime=settings.sandbox_runtime, allow_degraded=settings.allow_degraded,
                     volume_dir=settings.volume_dir, templates_dir=Path(__file__).resolve().parents[2] / "sandbox" /
                     "templates", storage_method=storage.CHOSEN_METHOD)
+    threading.Thread(target=watch_events, args=(docker.from_env(), pool), name="events", daemon=True).start()
+    threading.Thread(target=sample_forever, args=(docker.from_env(), pool, settings.volume_dir, storage.CHOSEN_METHOD,
+                                                  settings.metric_interval_sec), name="metrics", daemon=True).start()
     log.info("runner started: runtime=%s allow_degraded=%s storage=%s", settings.sandbox_runtime,
              settings.allow_degraded, storage.CHOSEN_METHOD)
     next_reap = 0.0
