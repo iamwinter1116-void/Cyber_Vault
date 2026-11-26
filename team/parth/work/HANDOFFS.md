@@ -126,3 +126,76 @@ OPEN QUESTIONS: who appends runner deps to evidence/VERSIONS.lock; may I import 
 NEXT: Docker/DB-free remainder is small; next real slice is the reconcile SQL against real PostgreSQL once a
   Postgres is available to me (or on the Linux host), then B1 acceptance in Manas's test window.
 ```
+
+## 2026-11-26 · B1/B3 local slice: reconcile DB loop, objects, reaper, storage, template loading
+
+```
+TASK: database reconcile loop, cleanup (reaper), storage ladder, template loading. STATUS: partial, local evidence only.
+  B1, B3, T-ISO-01/02, T-RES-03/06 and every O1/O5/G0 item stay OPEN.
+HOST: Windows 11, Git Bash, Python 3.15.2 stdlib only. No Docker daemon (Docker Desktop not running; WSL failed to
+  start earlier with HCS_E_SERVICE_NOT_AVAILABLE), no PostgreSQL, no psycopg/docker/PyYAML installed.
+TESTED COMMIT: 4b6dffb (parent 2327512).
+FILES: services/runner/{reconcile,objects,storage,main}.py (new), launch.py, templates.py (changed),
+  tests/unit/runner/{test_storage,test_reconcile_pg}.py (new), test_launch.py (changed).
+COMMANDS AND RESULTS:
+  python -m unittest tests.unit.runner.test_launch tests.unit.runner.test_templates tests.unit.runner.test_state
+    tests.unit.runner.test_storage -> "Ran 30 tests ... OK", exit 0
+  python -m unittest tests.unit.runner.test_reconcile_pg (no DSNs set) -> RuntimeError "set ABH_TEST_OWNER_DSN and
+    ABH_TEST_RUNNER_DSN; this test is not skipped silently" (intended refusal; NOT a pass)
+  python -m compileall -q services/runner tests/unit/runner -> exit 0
+  placeholder grep on services/runner/*.py -> no hits; ast check: no function over 40 lines; 0 CR bytes in all files
+  Combined check (temporary worktree of 4b6dffb, local merge of origin/work/henil 04d2df6, never pushed):
+    no conflicts (git status empty after merge); all 9 names imported from core.abh_core.{audit,db,settings} are
+    defined there; the 30 stdlib tests pass on the merged tree.
+VERIFIED FROM SOURCE (upstream tags, fetched 2026-11-26): psycopg 3.3.9 Connection.execute/transaction, Cursor
+  fetchone/fetchall, types.json.Jsonb; PyYAML 6.0.4 safe_load ("safe for untrusted input"); docker-py 7.2.0
+  containers.get/list(all, filters)/status/start/stop/remove(force), networks.get/list/remove, volumes.create(name,
+  driver, driver_opts, labels)/get/list/remove(force), client.info, errors.NotFound.
+DESIGN:
+  claim(): one tx, SELECT ... FOR UPDATE SKIP LOCKED LIMIT 20; requested rows become provisioning in that tx with an
+    env.state_changed event (no audit action exists for provisioning in 7.6). The SQL excludes rows decide() leaves
+    alone (failed/stopped not destroyed and not expired), so they cannot starve the LIMIT.
+  Docker work with no transaction open; then one short tx: UPDATE ... WHERE observed_state = <expected> (stale write ->
+    nothing written), append(env.*), activity events. Provision error -> destroy what exists -> failed + env.failed
+    (outcome error, reason <= 500 chars, detail reason <= 200). Stop/destroy errors are logged and retried next pass.
+  Degraded: isolation.degraded audit + alert.isolation_degraded [critical] naming T0.H1.N2.
+  Reaper: labelled abh.managed=true containers/networks/volumes -> env ids -> LIVE_SQL -> destroy the rest.
+  Storage: CHOSEN_METHOD = None until B0 check 8 chooses; provisioning refuses with StorageUnavailable until then.
+  Workspace accepted by launch(): exactly {Target /workspace, Source abh-vol-<env id>, Type volume, ReadOnly False},
+    or V3 tmpfs "size=<n>m,uid=1000,gid=1000" (HostConfig.Tmpfs, the form B0 tests). remove_image accepts only a
+    canonical UUID (ids come from Docker labels).
+INTERPRETATIONS (mine; please review):
+  - pids_limit: every container gets the env's full pids_limit (only CPU/memory are split in docs/08) - Manas asked
+    to keep this visible.
+  - Runner audit Actor = (service, "runner", role "", team_id = env.team_id) so team-scoped audit views include env.*
+    records; target_type "env", target_id env id (same as Henil's env routes).
+  - Polling every 1 s, no LISTEN: no env-change NOTIFY channel exists in the contract.
+  - Volume names abh-vol-<env id>; V1 image <ABH_VOLUME_DIR>/<env id>.img, assumes the runner sees the host path
+    at the same path (mount volume dir at identical path in compose).
+  - Labelled objects without abh.env_id are ignored by the reaper; a V1 image left without its volume (crash between
+    the two steps) is only removed by that env's destroy.
+NOT RUN / PENDING:
+  - test_reconcile_pg.py on real PostgreSQL (Manas offered his Compose DB; commands below).
+  - Anything in objects.py, main.py, make_image (mkfs.ext4), load_template: never executed.
+  - ruff, mypy strict; runner Dockerfile, template.yaml files and images (no digests yet).
+BUDGET: services/runner 730 physical lines / 520 code lines (no blanks, comments, docstrings) of 800. Collectors and
+  jobs (B4-B7) still to come; which count make check-fast uses decides whether that fits.
+NEW DEPENDENCIES: none installed. Registry evidence for Bhavya (evidence/VERSIONS.lock), from https://pypi.org/pypi/<name>/json
+  read 2026-11-26T12:35Z, all on docs/03 section 6 allowlist:
+    docker==7.2.0          uploaded 2026-07-09T14:53:45Z  Apache-2.0    requires_python >=3.8   github.com/docker/docker-py
+    psycopg==3.3.9         uploaded 2026-11-12T08:58:18Z  LGPL-3.0-only >=3.10  author Daniele Varrazzo  psycopg.org
+    psycopg-binary==3.3.9  uploaded 2026-11-12T08:58:23Z  LGPL-3.0-only >=3.10  (the [binary] extra)
+    psycopg-pool==3.3.3    uploaded 2026-09-22T15:53:23Z  LGPL-3.0-only >=3.10  (the [pool] extra)
+    PyYAML==6.0.4          uploaded 2026-11-20T23:34:39Z  MIT           >=3.10  author Kirill Simonov  pyyaml.org
+  Also needed at run time through core.abh_core: pydantic-settings (Henil's dependency).
+FOR MANAS (DB test on a DISPOSABLE Compose database; it writes permanent audit rows and refuses if any live env row exists):
+  git worktree add ../cv-combo origin/work/parth && cd ../cv-combo && git merge --no-edit origin/work/henil   # local only
+  python -m venv .venv && . .venv/bin/activate && pip install "psycopg[binary,pool]==3.3.9" pydantic-settings
+    (only after the VERSIONS.lock entries exist)
+  ABH_TEST_OWNER_DSN=postgresql://postgres:<owner pw>@<db host>:5432/abhedya \
+  ABH_TEST_RUNNER_DSN=postgresql://abh_runner:<runner pw>@<db host>:5432/abhedya \
+  python -m unittest -v tests.unit.runner.test_reconcile_pg
+  Expect 6 tests. The db service publishes no port and sits on the internal control network, so this must run from a
+  container on that network or with a temporary port mapping you choose; please paste output and exit code.
+NEXT: B4 collectors (pure threshold logic first), templates/images on a Linux host, then B1 acceptance in a test window.
+```
