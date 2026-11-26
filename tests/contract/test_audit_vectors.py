@@ -24,10 +24,14 @@ def _load_impl(impl_name: str) -> Any:
             sys.path.insert(0, str(REPO_ROOT / "tools"))
         return importlib.import_module("verify_audit")
     if impl_name == "core":
-        try:
-            return importlib.import_module("abh_core.audit")
-        except ImportError as exc:
-            pytest.fail(f"abh_core.audit not available yet: {exc}")
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+        for mod_name in ("abh_core.audit", "core.abh_core.audit"):
+            try:
+                return importlib.import_module(mod_name)
+            except ImportError as exc:
+                last_exc = exc
+        pytest.fail(f"abh_core.audit not available yet: {last_exc}")
     raise ValueError(impl_name)
 
 
