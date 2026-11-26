@@ -1,0 +1,275 @@
+{
+  "spec": "abhedya-audit-v1",
+  "WARNING": "TEST KEY ONLY (RFC 8032 section 7.1 test 1). Never use this key outside tests.",
+  "test_private_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "log_id": "21fe31dfa154a261",
+  "genesis_prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "empty_tree_root": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "records": [
+    {
+      "body": {
+        "v": 1,
+        "seq": 1,
+        "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "ts": "2026-11-26T04:30:00.000000Z",
+        "actor_type": "system",
+        "actor_id": "notary",
+        "actor_role": "",
+        "team_id": "",
+        "action": "audit.genesis",
+        "target_type": "audit_log",
+        "target_id": "21fe31dfa154a261",
+        "outcome": "success",
+        "ip": "",
+        "request_id": "",
+        "detail": {}
+      },
+      "canonical_utf8": "{\"action\":\"audit.genesis\",\"actor_id\":\"notary\",\"actor_role\":\"\",\"actor_type\":\"system\",\"detail\":{},\"ip\":\"\",\"outcome\":\"success\",\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"request_id\":\"\",\"seq\":1,\"target_id\":\"21fe31dfa154a261\",\"target_type\":\"audit_log\",\"team_id\":\"\",\"ts\":\"2026-11-26T04:30:00.000000Z\",\"v\":1}",
+      "hash": "96a596878f3ecf88ef08de61e96829e4889e31e992f2bac2fb6cf019a71880bc"
+    },
+    {
+      "body": {
+        "v": 1,
+        "seq": 2,
+        "prev_hash": "96a596878f3ecf88ef08de61e96829e4889e31e992f2bac2fb6cf019a71880bc",
+        "ts": "2026-11-26T04:30:01.250000Z",
+        "actor_type": "user",
+        "actor_id": "11111111-1111-4111-8111-111111111111",
+        "actor_role": "analyst",
+        "team_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "auth.login",
+        "target_type": "user",
+        "target_id": "11111111-1111-4111-8111-111111111111",
+        "outcome": "success",
+        "ip": "10.0.0.7",
+        "request_id": "req-0001",
+        "detail": {
+          "mfa": false
+        }
+      },
+      "canonical_utf8": "{\"action\":\"auth.login\",\"actor_id\":\"11111111-1111-4111-8111-111111111111\",\"actor_role\":\"analyst\",\"actor_type\":\"user\",\"detail\":{\"mfa\":false},\"ip\":\"10.0.0.7\",\"outcome\":\"success\",\"prev_hash\":\"96a596878f3ecf88ef08de61e96829e4889e31e992f2bac2fb6cf019a71880bc\",\"request_id\":\"req-0001\",\"seq\":2,\"target_id\":\"11111111-1111-4111-8111-111111111111\",\"target_type\":\"user\",\"team_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"ts\":\"2026-11-26T04:30:01.250000Z\",\"v\":1}",
+      "hash": "7d6e50030a3d95fa5164dcefa52f8eccb7beaf581a10db9525333cbbae3caf64"
+    },
+    {
+      "body": {
+        "v": 1,
+        "seq": 3,
+        "prev_hash": "7d6e50030a3d95fa5164dcefa52f8eccb7beaf581a10db9525333cbbae3caf64",
+        "ts": "2026-11-26T04:30:05.000000Z",
+        "actor_type": "user",
+        "actor_id": "11111111-1111-4111-8111-111111111111",
+        "actor_role": "analyst",
+        "team_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "env.create",
+        "target_type": "env",
+        "target_id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "outcome": "success",
+        "ip": "10.0.0.7",
+        "request_id": "req-0002",
+        "detail": {
+          "size": "S",
+          "template": "app-target",
+          "limits": {
+            "cpu_millis": 500,
+            "mem_mb": 256,
+            "pids": 128,
+            "storage_mb": 128
+          }
+        }
+      },
+      "canonical_utf8": "{\"action\":\"env.create\",\"actor_id\":\"11111111-1111-4111-8111-111111111111\",\"actor_role\":\"analyst\",\"actor_type\":\"user\",\"detail\":{\"limits\":{\"cpu_millis\":500,\"mem_mb\":256,\"pids\":128,\"storage_mb\":128},\"size\":\"S\",\"template\":\"app-target\"},\"ip\":\"10.0.0.7\",\"outcome\":\"success\",\"prev_hash\":\"7d6e50030a3d95fa5164dcefa52f8eccb7beaf581a10db9525333cbbae3caf64\",\"request_id\":\"req-0002\",\"seq\":3,\"target_id\":\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"target_type\":\"env\",\"team_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"ts\":\"2026-11-26T04:30:05.000000Z\",\"v\":1}",
+      "hash": "273f013f333c0fb1624b14116b0ab2860656a772519d3d72bc47f57010003c9d"
+    },
+    {
+      "body": {
+        "v": 1,
+        "seq": 4,
+        "prev_hash": "273f013f333c0fb1624b14116b0ab2860656a772519d3d72bc47f57010003c9d",
+        "ts": "2026-11-26T04:30:09.500000Z",
+        "actor_type": "user",
+        "actor_id": "22222222-2222-4222-8222-222222222222",
+        "actor_role": "analyst",
+        "team_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "action": "authz.denied",
+        "target_type": "env",
+        "target_id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "outcome": "denied",
+        "ip": "10.0.0.9",
+        "request_id": "req-0003",
+        "detail": {
+          "rule": "R13",
+          "reason": "cross_team",
+          "note": "સેવા \"quoted\" \\ back\nline"
+        }
+      },
+      "canonical_utf8": "{\"action\":\"authz.denied\",\"actor_id\":\"22222222-2222-4222-8222-222222222222\",\"actor_role\":\"analyst\",\"actor_type\":\"user\",\"detail\":{\"note\":\"સેવા \\\"quoted\\\" \\\\ back\\nline\",\"reason\":\"cross_team\",\"rule\":\"R13\"},\"ip\":\"10.0.0.9\",\"outcome\":\"denied\",\"prev_hash\":\"273f013f333c0fb1624b14116b0ab2860656a772519d3d72bc47f57010003c9d\",\"request_id\":\"req-0003\",\"seq\":4,\"target_id\":\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"target_type\":\"env\",\"team_id\":\"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb\",\"ts\":\"2026-11-26T04:30:09.500000Z\",\"v\":1}",
+      "hash": "919e8f26626e06be65b5d0a4af2ecb51d2bbac97ca6dbe0fe7d618c2c49ef523"
+    },
+    {
+      "body": {
+        "v": 1,
+        "seq": 5,
+        "prev_hash": "919e8f26626e06be65b5d0a4af2ecb51d2bbac97ca6dbe0fe7d618c2c49ef523",
+        "ts": "2026-11-26T04:30:20.000000Z",
+        "actor_type": "service",
+        "actor_id": "runner",
+        "actor_role": "",
+        "team_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "env.oom_killed",
+        "target_type": "env",
+        "target_id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "outcome": "success",
+        "ip": "",
+        "request_id": "",
+        "detail": {
+          "mem_limit_mb": 256
+        }
+      },
+      "canonical_utf8": "{\"action\":\"env.oom_killed\",\"actor_id\":\"runner\",\"actor_role\":\"\",\"actor_type\":\"service\",\"detail\":{\"mem_limit_mb\":256},\"ip\":\"\",\"outcome\":\"success\",\"prev_hash\":\"919e8f26626e06be65b5d0a4af2ecb51d2bbac97ca6dbe0fe7d618c2c49ef523\",\"request_id\":\"\",\"seq\":5,\"target_id\":\"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee\",\"target_type\":\"env\",\"team_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\",\"ts\":\"2026-11-26T04:30:20.000000Z\",\"v\":1}",
+      "hash": "f729a1abe83b81105a64d2ae59af7d5e9dcec444b1864fa8b56d60bfcf38ae11"
+    }
+  ],
+  "merkle_roots_by_tree_size": {
+    "0": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "1": "96a596878f3ecf88ef08de61e96829e4889e31e992f2bac2fb6cf019a71880bc",
+    "2": "1895f9a06d065034b6c088633aa9f32afdec7ae87dee99c02e51091524a9b3e8",
+    "3": "68a14c83f48538a29f8d1f47c0ee8c1d03bad7f4c39c8b184a7a96f32eba3768",
+    "4": "c343e86f092f7b802f4c41edbaa3dec52d9698485bd0bd7164a074dc9e66f49d",
+    "5": "404feabf77e104bf6fda00048169a65e208a840eee1c38443ec249976c1f1db4"
+  },
+  "checkpoints": [
+    {
+      "body": {
+        "v": 1,
+        "log_id": "21fe31dfa154a261",
+        "tree_size": 3,
+        "root_hash": "68a14c83f48538a29f8d1f47c0ee8c1d03bad7f4c39c8b184a7a96f32eba3768",
+        "head_hash": "273f013f333c0fb1624b14116b0ab2860656a772519d3d72bc47f57010003c9d",
+        "ts": "2026-11-26T04:30:10.000000Z"
+      },
+      "canonical_utf8": "{\"head_hash\":\"273f013f333c0fb1624b14116b0ab2860656a772519d3d72bc47f57010003c9d\",\"log_id\":\"21fe31dfa154a261\",\"root_hash\":\"68a14c83f48538a29f8d1f47c0ee8c1d03bad7f4c39c8b184a7a96f32eba3768\",\"tree_size\":3,\"ts\":\"2026-11-26T04:30:10.000000Z\",\"v\":1}",
+      "signature": "fc518c575c76134b5fb6875c39ca1725119ee76916cf1b0b0ef1a75ee1b839ddc083324358332eb8e9eb3bf6b249faa52e4fddb31db3f92b96baf4f658888108"
+    },
+    {
+      "body": {
+        "v": 1,
+        "log_id": "21fe31dfa154a261",
+        "tree_size": 5,
+        "root_hash": "404feabf77e104bf6fda00048169a65e208a840eee1c38443ec249976c1f1db4",
+        "head_hash": "f729a1abe83b81105a64d2ae59af7d5e9dcec444b1864fa8b56d60bfcf38ae11",
+        "ts": "2026-11-26T04:30:30.000000Z"
+      },
+      "canonical_utf8": "{\"head_hash\":\"f729a1abe83b81105a64d2ae59af7d5e9dcec444b1864fa8b56d60bfcf38ae11\",\"log_id\":\"21fe31dfa154a261\",\"root_hash\":\"404feabf77e104bf6fda00048169a65e208a840eee1c38443ec249976c1f1db4\",\"tree_size\":5,\"ts\":\"2026-11-26T04:30:30.000000Z\",\"v\":1}",
+      "signature": "847eb21a1952d15bbf53e47407b9a07b061a20e5a31d6e89f7f4496877eaa9a05988807d23953991a456f5c7e47536ac85cabb2e0535f051100aec1b8478d503"
+    }
+  ],
+  "tamper_cases": [
+    {
+      "name": "untouched",
+      "mutation": {
+        "op": "none"
+      },
+      "expected_verdict": "OK",
+      "expected_at": null
+    },
+    {
+      "name": "edit_field_no_rehash",
+      "mutation": {
+        "op": "set_field",
+        "seq": 4,
+        "field": "outcome",
+        "value": "success"
+      },
+      "expected_verdict": "HASH_MISMATCH",
+      "expected_at": 4
+    },
+    {
+      "name": "edit_detail_no_rehash",
+      "mutation": {
+        "op": "set_field",
+        "seq": 3,
+        "field": "detail",
+        "value": {
+          "size": "L",
+          "template": "app-target"
+        }
+      },
+      "expected_verdict": "HASH_MISMATCH",
+      "expected_at": 3
+    },
+    {
+      "name": "delete_middle_record",
+      "mutation": {
+        "op": "delete_record",
+        "seq": 3
+      },
+      "expected_verdict": "SEQ_GAP",
+      "expected_at": 3
+    },
+    {
+      "name": "swap_two_records",
+      "mutation": {
+        "op": "swap_records",
+        "a": 2,
+        "b": 3
+      },
+      "expected_verdict": "SEQ_GAP",
+      "expected_at": 2
+    },
+    {
+      "name": "truncate_tail_below_checkpoint",
+      "mutation": {
+        "op": "truncate_after",
+        "seq": 3
+      },
+      "expected_verdict": "TRUNCATED",
+      "expected_at": 5
+    },
+    {
+      "name": "smart_attacker_rehash_before_checkpoint_3",
+      "mutation": {
+        "op": "set_field_and_rehash_forward",
+        "seq": 2,
+        "field": "ip",
+        "value": "10.0.0.99"
+      },
+      "expected_verdict": "ROOT_MISMATCH",
+      "expected_at": 3
+    },
+    {
+      "name": "smart_attacker_rehash_after_checkpoint_3",
+      "mutation": {
+        "op": "set_field_and_rehash_forward",
+        "seq": 4,
+        "field": "outcome",
+        "value": "success"
+      },
+      "expected_verdict": "ROOT_MISMATCH",
+      "expected_at": 5
+    },
+    {
+      "name": "forged_checkpoint_root",
+      "mutation": {
+        "op": "set_checkpoint_field",
+        "tree_size": 5,
+        "field": "root_hash",
+        "value": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_verdict": "BAD_SIGNATURE",
+      "expected_at": 5
+    },
+    {
+      "name": "checkpoints_deleted_from_db",
+      "mutation": {
+        "op": "delete_checkpoints"
+      },
+      "expected_verdict": "OK",
+      "expected_at": null,
+      "note": "Verifier run WITHOUT --witness returns OK with unanchored_tail=5. Run WITH --witness (holding both checkpoints) it must return CHECKPOINT_REGRESSION at tree_size 3.",
+      "expected_verdict_with_witness": "CHECKPOINT_REGRESSION",
+      "expected_at_with_witness": 3
+    }
+  ],
+  "export_format": "Each exported record is the body object plus a hash field. Each exported checkpoint is the body object plus a signature field."
+}

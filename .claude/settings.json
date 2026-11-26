@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/contracts/**)",
+      "Edit(/docs/**)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/CLAUDE.local.md)",
+      "Edit(/README.md)",
+      "Edit(/.claude/**)",
+      "Edit(/team/*.md)",
+      "Edit(/team/*/*.md)",
+      "Read(/secrets/**)",
+      "Read(/.env)",
+      "Read(/.env.*)"
+    ],
+    "ask": [
+      "Bash(git push *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f Makefile ] && grep -q '^check-fast:' Makefile; then make check-fast 1>&2 || exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

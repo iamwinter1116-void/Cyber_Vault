@@ -1,0 +1,76 @@
+# ABHEDYA canonical authorization contract, version 1. FROZEN after gate G0.
+# This file is the single source of truth for who may call what.
+# The API loads it at start (deny by default: a route missing here must refuse to start the app).
+# tests/contract/test_rbac_matrix.py generates one test per rule x role x scope case from it.
+version: 1
+base_path: /api/v1
+roles: [admin, team_lead, analyst, auditor]
+
+# Scope values used under `allow`:
+#   any   no object involved; the call is allowed.
+#   all   objects of every team.
+#   team  only objects whose team_id equals the caller's team_id.
+#   own   only objects the caller created (env.owner_id or job.requested_by equals caller id).
+#   self  only the caller's own user record or session.
+#
+# Mandatory status codes (tests assert them exactly):
+#   401  no valid session (every rule without `public: true`)
+#   403  role not listed under `allow`; or scope `own` and the object belongs to a team-mate;
+#        or a state-changing call without a valid X-CSRF-Token header
+#   404  object belongs to another team (never reveal that it exists)
+#   409  allowed, but a business rule refuses (quota, last admin, wrong state)
+# List endpoints never return 403/404 for scope: they return only rows inside the caller's scope.
+# Audit of refusals: every failed login, 403, 404-by-scope and 409 writes one audit record with outcome=denied.
+# Its action is the rule's `audit` name, or authz.denied when the rule has none.
+# A 401 on any route other than login is NOT audited (anonymous callers must not be able to flood the ledger).
+# It goes to activity_event as authn.anonymous_rejected, at most one row per source IP per minute.
+
+rules:
+  - {id: R01, method: POST,   path: /auth/login,            public: true, audit: auth.login}
+  - {id: R02, method: POST,   path: /auth/logout,           allow: {admin: self, team_lead: self, analyst: self, auditor: self}, audit: auth.logout}
+  - {id: R03, method: GET,    path: /auth/me,               allow: {admin: self, team_lead: self, analyst: self, auditor: self}}
+
+  - {id: R04, method: GET,    path: /users,                 allow: {admin: all, auditor: all, team_lead: team}}
+  - {id: R05, method: POST,   path: /users,                 allow: {admin: all}, audit: user.create}
+  - {id: R06, method: PATCH,  path: "/users/{user_id}",     allow: {admin: all}, audit: user.update}
+
+  - {id: R07, method: GET,    path: /teams,                 allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+  - {id: R08, method: POST,   path: /teams,                 allow: {admin: all}, audit: team.create}
+  - {id: R09, method: PATCH,  path: "/teams/{team_id}",     allow: {admin: all}, audit: team.quota_update}
+
+  - {id: R10, method: GET,    path: /templates,             allow: {admin: any, team_lead: any, analyst: any, auditor: any}}
+
+  - {id: R11, method: GET,    path: /envs,                  allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+  - {id: R12, method: POST,   path: /envs,                  allow: {team_lead: team, analyst: team}, audit: env.create}
+  - {id: R13, method: GET,    path: "/envs/{env_id}",       allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+  - {id: R14, method: POST,   path: "/envs/{env_id}/stop",  allow: {admin: all, team_lead: team, analyst: own}, audit: env.stop}
+  - {id: R15, method: DELETE, path: "/envs/{env_id}",       allow: {admin: all, team_lead: team, analyst: own}, audit: env.destroy}
+  - {id: R16, method: GET,    path: "/envs/{env_id}/metrics", allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+
+  # Confidentiality rule: platform roles can stop or destroy a sandbox but can never run commands in it
+  # or read job output. admin and auditor are deliberately absent from R17 to R21.
+  - {id: R17, method: POST,   path: "/envs/{env_id}/exec",  allow: {team_lead: team, analyst: own}, audit: env.exec}
+  - {id: R18, method: GET,    path: /jobs,                  allow: {team_lead: team, analyst: own}}
+  - {id: R19, method: GET,    path: "/jobs/{job_id}",       allow: {team_lead: team, analyst: own}}
+  - {id: R20, method: POST,   path: /files,                 allow: {team_lead: team, analyst: team}, audit: file.submit}
+  - {id: R21, method: POST,   path: /ai-scans,              allow: {team_lead: team, analyst: team}, audit: ai.scan_start}
+
+  - {id: R22, method: GET,    path: /stream,                allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+  - {id: R23, method: GET,    path: /events,                allow: {admin: all, auditor: all, team_lead: team, analyst: team}}
+
+  - {id: R24, method: GET,    path: /audit,                 allow: {admin: all, auditor: all, team_lead: team}}
+  - {id: R25, method: GET,    path: /audit/export,          allow: {admin: all, auditor: all}, audit: audit.export}
+  - {id: R26, method: GET,    path: /audit/checkpoints,     allow: {admin: any, team_lead: any, analyst: any, auditor: any}}
+  - {id: R27, method: GET,    path: /audit/pubkey,          allow: {admin: any, team_lead: any, analyst: any, auditor: any}}
+  - {id: R28, method: POST,   path: /audit/verify,          allow: {admin: all, auditor: all}, audit: audit.verify}
+
+  - {id: R29, method: GET,    path: /admin/overview,        allow: {admin: all, auditor: all}}
+  - {id: R30, method: POST,   path: /admin/kill-switch,     allow: {admin: all}, audit: admin.kill_switch}
+
+  - {id: R31, method: GET,    path: /healthz,               public: true}
+
+# Business rules that return 409 and are audited (tests T-RBAC-09 to T-RBAC-12, in this order):
+#   BR1  R06 may not disable or demote the last enabled admin.
+#   BR2  R06 may not change the caller's own role.
+#   BR3  R12, R20, R21 refuse when the team quota or the host capacity guard would be exceeded (code QUOTA_EXCEEDED).
+#   BR4  R17 refuses unless env.observed_state is running (code ENV_NOT_RUNNING).

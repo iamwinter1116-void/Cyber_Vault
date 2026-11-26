@@ -1,0 +1,7 @@
+CLAUDE.local.md
+secrets/
+.env
+.env.*
+node_modules/
+.venv/
+__pycache__/

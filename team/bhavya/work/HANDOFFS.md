@@ -1,0 +1,6 @@
+# Hand-off notes · Bhavya (role C)
+
+The agent appends one note at the end of every session (prompt P-HANDOFF), in the format of
+`docs/07_ANTI_HALLUCINATION.md` section 5. Newest at the bottom. Teammates read this file to learn what is
+really finished: only what was run and seen belongs here.
+
