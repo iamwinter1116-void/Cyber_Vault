@@ -32,3 +32,12 @@ Required owner handoffs before Phase 1 can close:
 State: Phase 0 complete; Phase 1 incomplete pending owner handoffs. No application code, mock, stub, or simulation
 was added; no product or security test was run or claimed to pass. Next action after verified handoffs: implement M1 on
 `work/manas`, then run the checks required by its done-when criteria on the proper host.
+
+## 2026-11-26 · Local instruction distribution repair
+
+While checking Henil's M1 handoff, confirmed that `.gitignore` ignored `CLAUDE.local.md` at every directory depth;
+none of the four `team/<name>/CLAUDE.local.md` files was tracked in the baseline. Changed the ignore rule to
+`/CLAUDE.local.md` so only the root machine-specific copy remains ignored, and staged all four team templates.
+`git check-ignore -v CLAUDE.local.md` reports the root rule; `git check-ignore -v team/henil/CLAUDE.local.md`
+has no output, meaning the distributable template is no longer ignored. `git diff --cached --check` exited 0.
+No application implementation or runtime/security test is claimed by this repository setup fix.
