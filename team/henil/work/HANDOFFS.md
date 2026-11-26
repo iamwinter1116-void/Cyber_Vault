@@ -172,3 +172,32 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - Continue compacting `services/api` in Task A7 to stay under 1100 lines.
 NEXT: A6 (`services/notary` + `services/api/routes/audit.py` `R24`–`R28`), while continuing 5-min checks on `origin/integration`.
 
+## 2026-11-26 · Task A6 local implementation slice (`services/notary` + `R24`–`R28`, all 31 routes registered)
+
+TASK: A6 · Audit notary service and audit API routes (`R24`–`R28`)
+STATUS: partial (notary vector/tamper verification unit tests, 31-route matrix parity, ruff, and mypy --strict pass; live PostgreSQL/witness tamper drill and `tools/verify_audit.py` integration pending)
+CHANGED:
+  - `services/notary/__init__.py` (1 line)
+  - `services/notary/__main__.py` (182 lines; genesis, incremental verification, Ed25519 checkpoints, witness fsync, tamper halt + alert)
+  - `services/api/routes/audit.py` (223 lines; `R24` list, `R25` NDJSON export, `R26` checkpoints, `R27` pubkey, `R28` verify)
+  - `services/api/authz.py` (uses `app.openapi()` paths for FastAPI 0.165.0 compatibility)
+  - `services/api/main.py` (mounts `audit` router and enforces `verify_route_coverage(app, require_all=True)`)
+  - `tests/unit/api/test_authz.py` (asserts `require_all=True` across all 31 matrix rules)
+  - `tests/unit/notary/test_notary.py` (tests `verify_ledger_state` on `contracts/audit_vectors.json` + 5 tamper modes)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check --fix /mnt/e/CyberVault/Cyber_Vault/services/api/authz.py && ruff check ... -> 0
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/services/notary /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 31 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (29 passed)
+TESTS: 29/29 unit tests passed; T-AUD-03, T-AUD-06, T-AUD-08, and live tamper drill pending PostgreSQL / Manas's VM
+VERIFIED FACTS:
+  - All 31 `(method, path)` pairs in `contracts/rbac_matrix.yaml` are registered and verified at FastAPI startup (`require_all=True`).
+  - `services.notary` `verify_ledger_state` reproduces `OK`, `HASH_MISMATCH`, `SEQ_GAP`, `CHECKPOINT_REGRESSION`, `BAD_SIGNATURE`, and `TRUNCATED` on `contracts/audit_vectors.json`.
+  - Did not read or copy `tools/verify_audit.py`.
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL execution of `services/notary` loop, witness file fsync, `R24`–`R28`, and `T-AUD-08` 30-second tamper drill remain unverified without PostgreSQL / VM.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS:
+  - `services/notary/__main__.py` is 182 lines (budget 150) and `services/api` is ~2400 lines (budget 1100); Task A7 will deduplicate SQL/helper code to trim both within budget.
+NEXT: A7 (hardening & line-budget trim + OpenAPI export helper), while continuing 5-min checks on `origin/integration`.
+

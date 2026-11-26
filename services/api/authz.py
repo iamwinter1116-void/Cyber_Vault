@@ -10,7 +10,6 @@ from typing import Any, cast
 import yaml
 from core.abh_core.audit import append as audit_append
 from fastapi import FastAPI, Request
-from fastapi.routing import APIRoute
 
 from services.api.deps import AuthContext, require_session
 from services.api.middleware import ApiError
@@ -52,11 +51,12 @@ def verify_route_coverage(app: FastAPI, *, require_all: bool = False) -> None:
     """Verify registered /api/v1 routes exist in rbac_matrix.yaml (deny by default)."""
     prefix = "/api/v1"
     registered: set[tuple[str, str]] = set()
-    for route in app.routes:
-        if isinstance(route, APIRoute) and route.path.startswith(prefix):
-            rel = route.path[len(prefix) :]
-            for method in route.methods or ():
-                if method not in {"HEAD", "OPTIONS"}:
+    paths = cast(dict[str, dict[str, object]], app.openapi().get("paths", {}))
+    for full_path, ops in paths.items():
+        if full_path.startswith(prefix):
+            rel = full_path[len(prefix) :]
+            for method in ops:
+                if method.upper() in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
                     registered.add((method.upper(), rel))
     matrix_pairs = {(r.method, r.path) for r in MATRIX.values()}
     unknown = registered - matrix_pairs

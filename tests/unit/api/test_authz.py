@@ -11,7 +11,7 @@ from services.api.main import create_app
 def test_matrix_has_31_rules_and_startup_passes() -> None:
     assert len(MATRIX) == 31
     app = create_app()
-    verify_route_coverage(app, require_all=False)
+    verify_route_coverage(app, require_all=True)
 
 
 def test_unmapped_route_refused_at_startup() -> None:

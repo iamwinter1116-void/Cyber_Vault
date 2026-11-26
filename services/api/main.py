@@ -13,6 +13,7 @@ from services.api.authz import verify_route_coverage
 from services.api.middleware import install_middleware_and_handlers
 from services.api.routes import (
     admin,
+    audit,
     auth,
     envs,
     health,
@@ -51,7 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(jobs.router, prefix="/api/v1")
     app.include_router(monitor.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
-    verify_route_coverage(app, require_all=False)
+    app.include_router(audit.router, prefix="/api/v1")
+    verify_route_coverage(app, require_all=True)
     return app
 
 
