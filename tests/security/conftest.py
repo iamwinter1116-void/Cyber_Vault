@@ -62,14 +62,14 @@ def exec_in_env(client: httpx.Client, csrf: str, env_id: str, command: str, cont
     )
     assert resp.status_code == 202, f"Exec submit failed: {resp.status_code} {resp.text}"
     job_id = resp.json()["id"]
-    deadline = time.monotonic() + 65.0
+    deadline = time.monotonic() + 75.0
     while time.monotonic() < deadline:
         jr = client.get(f"{API_BASE}/jobs/{job_id}")
         assert jr.status_code == 200
         if jr.json()["status"] in ("done", "timeout", "error"):
             return jr.json()
         time.sleep(0.5)
-    pytest.fail(f"Job {job_id} did not finish within 65s")
+    pytest.fail(f"Job {job_id} did not finish within 75s")
 
 
 def docker_managed_inspect() -> list[dict[str, Any]]:

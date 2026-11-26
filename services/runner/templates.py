@@ -34,10 +34,9 @@ class TemplateContainer:
 
 @dataclass(frozen=True)
 class Template:
+    """The parts the runner uses; title, description and sizes are validated but not kept."""
+
     name: str
-    title: str
-    description: str
-    sizes: tuple[str, ...]
     containers: tuple[TemplateContainer, ...]
 
 
@@ -77,7 +76,7 @@ def parse_template(data: object) -> Template:
         raise ProfileError(f"{name}: containers must be exactly {sorted(TEMPLATE_CONTAINERS[name])}")
     if sum(c.share_pct for c in containers) != 100:
         raise ProfileError(f"{name}: share_pct values must sum to 100")
-    return Template(name, str(data["title"]), desc, tuple(sizes), containers)
+    return Template(name, containers)
 
 
 def load_template(templates_dir: Path, name: str) -> Template:

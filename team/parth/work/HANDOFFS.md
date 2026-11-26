@@ -315,3 +315,223 @@ STANDING OPEN ITEMS:
   5. Blocked: B7 ai_scan until the four-person O9 CR.
 NEXT: B5 exec jobs (~60 code lines, fits a code-line rule); B6 local only after the counting rule is fixed.
 ```
+
+## 2026-11-26 · Sync f3328bc, check-fast safety, B5 exec jobs (local) · this commit
+
+```
+TASK: Parth approved: sync, B5 exec jobs, handoff/PR, messages. Probes and images held (CR draft only).
+STATUS: partial. B5 code + pure tests done; DB cases written, not run; no Docker call has run.
+SYNC: `git merge --no-edit origin/integration` -> exit 0, fast-forward to f3328bc (PR #2 had merged 2075dbf;
+  includes Manas PR #11 Makefile). No file in host/, services/runner/, sandbox/, tests/unit/runner/ changed.
+  tests/security/test_workloads.py checked out intact (git diff vs HEAD empty).
+CHECK-FAST SAFETY (found after PR #11): `make check-fast` runs `pytest tests/unit`; the old
+  tests/unit/runner/test_reconcile_pg.py raised at import without DSNs and would have failed collection for
+  everyone. Renamed to tests/unit/runner/live_pg_suite.py (not matched by test_*.py), same guard style as
+  Henil's live suite: requires ABH_TEST_ALLOW_DISPOSABLE_DB=1, both DSNs, same database on both, name
+  containing "test" or "disposable", never "abhedya"; refuses live env rows; fails loudly, never skips.
+MYPY ON WINDOWS (not run here; facts checked): docker 7.2.0 has no docker/py.typed (GitHub tag listing),
+  so `import docker` now carries `# type: ignore[import-untyped]` (collect, objects, main); os.stat().st_blocks
+  is POSIX-only in typeshed, read via getattr in collect.storage_used. Effect only on type checking.
+B5 CHANGED:
+  services/runner/exec_policy.py (new, pure): argv ["timeout","-s","KILL","60","sh","-c",command] (the command
+    is one argument inside the sandbox, never a host string); input/env/template checks; output capped at
+    65536 bytes of valid UTF-8 with U+0000 replaced (jsonb rejects it); status rule (137 at >= 60 s = timeout,
+    137 earlier = done, no exit code = error).
+  services/runner/jobs.py (new): claim only queued exec jobs (file_analysis/ai_scan stay queued), oldest
+    first, SKIP LOCKED; exec_create(user 1000:1000) + exec_start(stream=True), output beyond the cap read and
+    discarded (bounded memory), host-side bound 65 s, exit code from exec_inspect; finish = job row + one
+    job.finished audit (target_type job, outcome success only for done) + one job.finished activity event in
+    one transaction; start-up recovery ends exec jobs left running as error, each audited.
+  services/runner/main.py: 4 exec worker threads, each with docker.from_env(timeout=75).api (default client
+    timeout is 60 s = docker/constants.py DEFAULT_TIMEOUT_SECONDS, same as the deadline); pool max_size 8.
+  tests/unit/runner/test_exec_policy.py (new, 6 tests, includes a hostile quotes/;/`/$()/newline command).
+  tests/unit/runner/live_pg_suite.py: + JobsSQL (4 tests) -> 14 tests in 3 classes.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib only):
+  python -m unittest discover -s tests/unit/runner -t . -p "test_*.py" -> "Ran 50 tests ... OK", exit 0
+  python -m compileall -q services/runner tests/unit/runner -> exit 0
+  python db/init/require.py placeholders -> exit 1, only services/api/schemas.py:154 (Henil's); no runner/host hit
+  NOT RUN: ruff, mypy, pytest (not installed; lock incomplete), live_pg_suite (needs DSNs + deps).
+BUDGET: OVER - 857 code / 1191 physical lines of 800 (journal line written; my B5 estimate was wrong).
+  B6 cannot fit without a reduction pass or a four-person budget decision.
+PENDING (Linux host): hostile command run inside a sandbox, `sleep 70` -> timeout, 200000-byte output ->
+  truncated, exec latency under a neighbour's fork bomb (T-RES-02), all Docker exec behaviour under runsc.
+FOR MANAS (runner Compose block facts, from docs/04 section 9 and the code; no Dockerfile yet because the
+  dependency lock and base-image decision are open):
+  command `python -m services.runner.main` with the repository root as working directory (it reads
+  sandbox/templates relative to the code); network control only; no published port; mounts Docker socket,
+  quarantine read-only, volume directory; DB role abh_runner via ABH_DB_DSN; reads ABH_SANDBOX_RUNTIME,
+  ABH_ALLOW_DEGRADED, ABH_VOLUME_DIR, ABH_METRIC_INTERVAL_SEC (via core Settings). No HTTP health endpoint
+  exists or is defined by the contract. Exactly one runner per stack (R-23; orphan-job recovery assumes it).
+  OPEN: (1) for storage V1 the daemon opens the loop image by its path, so ABH_VOLUME_DIR must be the same
+  path inside the runner container and on the host (bind mount at the identical path) - my reading of
+  docs/08 section 4, unverified; (2) the socket's group/uid for the runner process; (3) the finale date
+  (27 Nov or 2 Dec) decides whether the docs/02 tripwire cuts already apply; (4) budget: runner 857/800;
+  (5) CR draft for sandbox base images and packages: team/parth/work/CR_DRAFT_sandbox_images.md.
+  PG command: ABH_TEST_ALLOW_DISPOSABLE_DB=1 ABH_TEST_OWNER_DSN=... ABH_TEST_RUNNER_DSN=...
+    python -m unittest -v tests.unit.runner.live_pg_suite   (14 tests)
+FOR BHAVYA: (1) probe correction (my omission): probe_env also returns "mounts": [mount points] and
+  "cap_eff": <CapEff hex from /proc/self/status>; disk_fill <path> joins the list (B2 prompt); additive, her
+  tests are unaffected. (2) Still open from Manas's list on integration f3328bc: VERSIONS.lock lacks docker,
+  psycopg-binary, pydantic-settings and says pyyaml 6.0.3 (runner needs 6.0.4); evidence/bug-journal.md:124
+  blank line at EOF; T-ISO-01/04/05/06 differences not yet documented through a CR. (3) Observed against
+  docs/06: T-MON-02 checks >= 3 REST samples in 15 s (docs: >= 6 stream events in 30 s); T-MON-04 does not
+  check 10 events in order; T-WL-02 lacks the detonation case and the mode-0400 check; the antivirus test
+  string is typed in test_workloads.py with no recorded official source; exec_in_env waits 65 s, close to the
+  60 s job deadline. These are her files; reported, not edited.
+STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule unproven on Linux; every
+  Docker call unverified; B0 never on Linux; live_pg_suite unrun; B7 blocked by the O9 CR; budget over.
+NEXT: wait for the CR/base-image decision and the lock entries; then B2 probes; Linux test window via Manas.
+```
+
+## 2026-11-26 · Reduction pass, image + budget proposals, review of Bhavya 13b7902 · this commit
+
+```
+TASK: Manas's reply (14/14 live PG; decisions 1-5): reduction pass, concrete image CR; Bhavya's 13b7902 claims.
+STATUS: partial. Proposals written, not approved. No image pulled or built. Docker/runsc and B5 in-sandbox
+  exec checks remain PENDING (Manas's instruction).
+SYNC: `git merge --ff-only origin/integration` -> exit 0, at 76e6e16; no file in my paths changed.
+EVIDENCE RECEIVED: Manas 88323b8: `python -m pytest tests/unit/runner/live_pg_suite.py -q` -> exit 0,
+  "14 passed in 2.70s" on a disposable abhedya_test DB (removed afterwards). First real-PostgreSQL pass for
+  reconcile/collect/jobs SQL. Note: on his host `unittest discover` resolves another `tests` package, so the
+  pure-test command for him is `python -m pytest tests/unit/runner/test_launch.py
+  tests/unit/runner/test_templates.py tests/unit/runner/test_state.py tests/unit/runner/test_storage.py
+  tests/unit/runner/test_metrics.py tests/unit/runner/test_exec_policy.py -q`.
+CHANGED (code): services/runner/reconcile.py (DockerWork Protocol -> DockerOps under TYPE_CHECKING; unused
+  RuntimeChoice import removed), services/runner/templates.py (Template keeps name and containers only;
+  title/description/sizes still validated). Behaviour unchanged.
+CHANGED (docs, my folder): CR_PROPOSAL_sandbox_images.md (replaces the draft), CR_PROPOSAL_runner_budget.md,
+  JOURNAL.md, this file.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib):
+  python -m unittest discover -s tests/unit/runner -t . -p "test_*.py" -> "Ran 50 tests ... OK", exit 0
+  python -m compileall -q services/runner -> exit 0
+  budget count (ast): 850 code / 1185 physical lines (was 857 / 1191)
+  registry: anonymous token from auth.docker.io; GET registry-1.docker.io/v2/library/python/manifests/
+    3.13-slim-trixie -> index sha256:7249d5587b78209a006dc4a3b5340678f84ea729239193aa559962cd8c1fce50,
+    linux/amd64 sha256:e123d49d13f666b842ae2b925bf30703910481c67c89edc0a6b42e09d2b2168d (2026-11-26T16:26Z)
+  PyPI JSON: psycopg-binary 3.3.9, PyYAML 6.0.4, pydantic-core 2.50.5 have Linux x86_64 wheels cp310-cp315;
+    pydantic-settings 2.16.3 requires Python >= 3.11 and python-dotenv; pydantic 2.14.4 pins pydantic-core 2.50.5.
+NOT RUN: ruff, mypy, pytest (not installed here); live_pg_suite after this commit (reconcile.py changed).
+REVIEW OF BHAVYA 13b7902 (now on integration via PR #14), checked against the code:
+  Correct: lock entries docker 7.2.0, psycopg-binary 3.3.9, pyyaml 6.0.4, pydantic-settings 2.16.3 (upload
+  times match my PyPI evidence); bug-journal.md ends with one newline; T-MON-02 stream >= 6 events / 30 s;
+  exec_in_env 75 s; T-ISO-05 exec 404 + stream; EICAR string is 68 bytes.
+  Defects found: (a) T-MON-04 takes last_id from `/events?limit=1`, but services/api/routes/monitor.py orders
+    `ORDER BY id` ascending, so it is the OLDEST id: the test replays 10 old events, not the 10 it generated,
+    and never opens/drops a first stream. (b) T-ISO-04 gateway set can be empty (sandbox networks use
+    gateway_mode_ipv4=isolated; UNVERIFIED whether inspect reports a Gateway) -> loop silently skipped; should
+    assert non-empty. lan_ip still defaults to 127.0.0.1; detonator loopback-only check (docs/06) still absent.
+    (c) T-ISO-06 uses info.get("mounts", []) -> passes if the field is missing; "only allowed mounts" not
+    asserted. (d) T-WL-02 detonation passes on any non-zero exit (127 if probe_connect is absent).
+    (e) EICAR: a URL comment was added; no record that the bytes were taken from that page.
+  Still open: lock lacks pydantic, fastapi, argon2-cffi, uvicorn, python-multipart, ruff, mypy, and the
+    transitive packages above; pytest 8.4.2 vs 9.2.0 and cryptography 50.0.0 vs 50.0.2 unresolved.
+FOR MANAS: please re-run live_pg_suite on this commit (14 tests; reconcile.py and templates.py changed).
+  Image CR and budget CR are ready for the four-person review. Decisions 4 (V1 same-path bind mount, not
+  selected until preflight) and 5 (dedicated non-root runner user via the measured socket gid; no chmod 666,
+  no privileged, no extra capabilities) are recorded as constraints for the runner Compose block.
+STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule unproven on Linux; every Docker
+  call unverified; B0 never on Linux; B5 in-sandbox exec tests pending; budget over (CR proposed); images not
+  built (CR proposed); B7 blocked by the O9 CR.
+NEXT: after approvals, B2 probes + target app + Dockerfiles in sandbox/; then the Linux test window.
+```
+
+## 2026-11-26 · Review of Bhavya's probe-facing tests (6d71266) + probe contract v2 · this commit
+
+```
+TASK: Manas's request: review Bhavya's probe-facing changes against the B2 contract. No runner code changed.
+STATUS: review done; contract v2 written (team/parth/work/PROBE_CONTRACT.md). Image CR and budget CR remain
+  AWAITING ALL FOUR APPROVALS; no image pulled or built; Python probe language not treated as approved.
+SYNC: `git merge --ff-only origin/integration` -> exit 0 at 33e3b84; my paths unchanged by it.
+EVIDENCE RECEIVED: Manas handoff line 236: on 7f86459, six pure modules -> 50 passed; live_pg_suite on a fresh
+  disposable abhedya_test -> 14 passed in 2.49s, exit 0; project removed.
+REVIEWED: origin/work/bhavya 6d71266 (newer than b6491f2; unmerged), tests/security/*.py, by reading the code:
+  Matches the contract and the runner: T-ISO-03 now FAILS when probe_icmp reports sent=false (no unsent probe
+  counted as proof); T-ISO-04 needs ABH_HOST_LAN_IP != 127.0.0.1, reads IPAM gateways, and when none exists
+  requires Internal=true and option com.docker.network.bridge.gateway_mode_ipv4=isolated - exactly what
+  launch.network_create_kwargs sets; T-ISO-06 requires a mounts list; T-WL-02 requires the detonation probe to
+  exit 0 with reachable=false; T-MON-04 pages /events with after_id and compares the exact 10 replayed ids
+  (relies on the runner's one job.finished activity event per exec job, covered by live_pg_suite).
+  Gaps found (her files; reported, not edited):
+  1. T-RES-03 asserts only exit_code != 0. Without a working quota, disk_fill runs until the runner's 60 s
+     deadline kills it (exit 137), so a missing quota would PASS. Contract v2 gives errno/bytes_written.
+  2. T-RES-01 asserts only exit_code != 0; docs/06 also requires alert.oom_killed within 5 s, env.oom_killed
+     audited, neighbour 1 s loop missing at most one beat. Runner interaction (UNVERIFIED): if runsc OOM kills
+     the whole sandbox, collect.on_die marks the env failed and the reaper removes it; the exec job then ends
+     as error with result {"error": ...} and no exit_code key, so job["result"]["exit_code"] raises KeyError.
+  3. T-RES-02 samples /healthz once; docs/06 says "for 30 s" and "afterwards the environment stops and is
+     removed within 15 s". The runner has no rule that stops an env after a fork bomb; my reading is that the
+     test deletes the env and the runner removes it within 15 s (reconcile polls every 1 s) - needs agreement.
+  4. T-WL-01 checks connect, docs/06 says the name "does not resolve": probe_dns would test that directly.
+  5. T-ISO-06 does not check that the write error is a read-only error (docs/06); probe_write carries errno.
+  6. Planning dependency: T-ISO-04's detonator-interface check needs B6 detonation, while docs/02 cut 5 allows
+     cutting detonation and B6 is blocked by the runner budget CR. It also needs /sys/class/net inside runsc
+     (UNVERIFIED).
+HOST MEASUREMENTS TO KEEP OPEN (not facts): V1 same-path bind mount; runner non-root user via the measured
+  socket gid; unprivileged ICMP under runsc; /sys/class/net under runsc; runsc OOM scope.
+STANDING OPEN ITEMS: budget 850/800 is an open issue (CR proposed, not approved; 1000 is not permission to
+  grow; any B6 work waits for the decision and is measured as it grows); images not built; B5 in-sandbox exec checks pending; every Docker/runsc call
+  unverified; pids_limit per container is an interpretation; B7 blocked by the O9 CR. No gate/objective green.
+NEXT: wait for the four-person decisions; then B2 probes + target app per PROBE_CONTRACT.md, local output tests,
+  then the Linux test window.
+```
+
+## 2026-11-26 · Manas decisions on T-RES-02 / T-ISO-04 applied to the runner side · this commit
+
+```
+TASK: Manas (PR #18 merged): T-RES-02 = full 30 s, then explicit delete, removal within 15 s, record the
+  containing limit; T-ISO-04 required for every sandbox shipped; detonator subcheck only if detonation ships.
+STATUS: docs only (my folder). No runner code changed (budget 850/800 open; no growth before the CR).
+  Image and budget CRs still await all four approvals; nothing pulled or built.
+FOUND FROM THE CODE (new):
+  1. services/api/routes/envs.py stop_env writes desired_state + an audit record, no activity event; the first
+     stream event an analyst sees for a stop is the runner's env.state_changed after objects.stop(), which
+     calls container.stop(timeout=10) per container. A PID 1 without a SIGTERM handler ignores SIGTERM on
+     Linux (`sleep infinity`, plain http.server), so app-target would take about 20 s, beyond Bhavya's
+     T-ISO-05 5 s control check. Fix proposed in the image CR (PID 1 handles SIGTERM), zero runner lines.
+     runsc behaviour UNVERIFIED (host plan step 4).
+  2. Delete path: destroy() uses remove(force=True); the loop polls every 1 s, so 15 s is reachable, but a
+     stop/provision claimed in the same pass or the 30 s reap runs before it (serial apply). To be measured
+     under the real test load (host plan step 4); not changed now.
+  3. T-ISO-04 for every shipped sandbox means probes are needed in `target` too (exec reaches it via R17
+     container "target"); added to PROBE_CONTRACT v3 and the image CR. Bhavya's T-ISO-04 runs from toolbox only.
+  4. B4 done-when needs a held allocation for the memory cross-check: mem_hog gets optional hold_s (additive).
+CHANGED: team/parth/work/PROBE_CONTRACT.md (v3: target probes, fork_bomb errno, mem_hog hold_s, Manas's
+  procedures), CR_PROPOSAL_sandbox_images.md (target probes, PID 1 SIGTERM rule, stop-time check),
+  HOST_TEST_PLAN.md (new: every Parth-owned Linux acceptance step in order), this file.
+NOT RUN: anything on Docker/runsc. No gate or objective green.
+FOR BHAVYA: T-ISO-04 should also run from container "target"; T-RES-02 per Manas's procedure (30 s, then
+  DELETE, removal within 15 s, containing limit recorded); fork_bomb JSON now has errno.
+NEXT: four-person decisions on the image and budget CRs; then B2 per PROBE_CONTRACT v3; host plan in Manas's window.
+```
+
+## 2026-11-26 · Collecting the four-person decisions; official budget count; review of Bhavya PR #20 · this commit
+
+```
+TASK: Manas (PR #21 merged): keep SIGTERM rule, keep stop-time claim unverified, collect the four decisions on
+  the image and runner-budget proposals; B2 only after approval; B6 and runner growth on hold.
+STATUS: decision papers ready; NO decision recorded yet (A, B, C, D all open). No code changed.
+SYNC: `git merge --ff-only origin/integration` -> 9c8675b (PR #22 budget report); my paths unchanged by it.
+CORRECTION to my earlier entries: the "about 20 s per app-target stop" figure is an EXPECTATION from Linux
+  PID 1 semantics, not a measurement; CR_PROPOSAL_sandbox_images.md now says so (host plan step 4 measures it).
+OFFICIAL COUNT: `python db/init/report_budgets.py` (Windows, Python 3.15.2) -> exit 1, prints
+  "services/runner: 850/800 OVER" (also api 2000/1100 OVER, sandbox and web/src MISSING); per-file runner
+  counts equal my ast counts (collect 125, reconcile 131, launch 119, jobs 98, ...). Note: the script counts
+  .py/.sh/Dockerfile/web files only, so sandbox template .yaml files do not count toward sandbox/'s 450.
+CHANGED: CR_ENTRIES_FOR_09.md (new: two entries in docs/09 Part 4 format, with a D slot because the template
+  lists A/B/C but the rule is all four; numbers assigned at paste), CR_PROPOSAL_runner_budget.md (official
+  counter; Manas's 14/14 rerun recorded), CR_PROPOSAL_sandbox_images.md (stop time marked unverified).
+REVIEW of Bhavya PR #20 (origin/work/bhavya cdc62e9, "PROBE_CONTRACT v2 alignment"; contract is now v3):
+  Done well: T-RES-01 now checks alert.oom_killed within 5 s, env.oom_killed audit, neighbour <= 1 missed beat;
+  T-RES-02 runs 30 s then DELETEs; T-RES-03 requires exit 1, errno ENOSPC, bytes_written <= storage_mb MiB;
+  T-WL-01 uses probe_dns; T-ISO-06 checks the read-only error.
+  Still open: (1) T-RES-02 checks only observed_state == "destroyed" (the runner's own claim, written after
+  objects.destroy returns); Manas asked to verify the runner removed the resources: label-filtered
+  docker ps -a / network ls / volume ls, as her T-WL-02 does; and nothing records which limit contained the
+  bomb. (2) T-ISO-04 runs from toolbox only; v3 + Manas: every shipped sandbox, i.e. also container "target".
+  (3) T-RES-03 does not check "host free space dropped by no more than the quota; neighbour can still write".
+DECISIONS NEEDED (yes/no each, on CR_ENTRIES_FOR_09.md): A Henil (paused since 21:01), B Parth, C Bhavya,
+  D Manas. After four yes: a human pastes both entries into docs/09 and records the commit; then B2.
+STANDING OPEN ITEMS: unchanged (budget 850/800 open; images not built; every Docker/runsc call unverified;
+  B5 in-sandbox checks pending; host measurements: V1 same path, socket gid, ICMP, /sys/class/net, OOM scope,
+  stop time; B7 blocked by the O9 CR). No gate or objective green.
+```

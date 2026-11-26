@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import docker.errors
+import docker.errors  # type: ignore[import-untyped]  # docker 7.2.0 ships no py.typed
 
 from services.runner import storage
 from services.runner.launch import (

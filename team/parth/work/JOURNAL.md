@@ -51,3 +51,24 @@ Under a physical-line rule the runner is now OVER 800 (by 209). Under a code-lin
   hallucination rules ask to keep next to the code. If the rule is physical lines, that is the first cut.
 Next: B5 (~60 code) fits a code-line rule; B6 local (~40) would reach ~823 code lines, so B6 starts only after
   the rule is fixed or a reduction pass (verbose validation messages in templates.py/launch.py) is done.
+
+### BUDGET OVERAGE · services/runner 857 code lines of 800 after B5 local slice   2026-11-26 · owner B
+docs/05 line: services/runner is over its 800-line budget (857 non-test code lines; 1191 physical) because
+  B5 adds the exec path (jobs.py 98, exec_policy.py 28) on top of B1-B4; the lines are contract checks
+  (sandbox profile, template allowlist, job input), required state/audit writes, and the bounded-output and
+  deadline guards of R-14. They are not removed now because each one is exercised by a test or a section-8 /
+  section-5 rule, and cutting defensive branches before the Linux run shows which are needed would trade
+  safety for a count.
+Was an AI agent wrong? yes: the agent estimated B5 at ~60 code lines (entry above); it measured 133. Rule H1.
+Measured: reconcile 135 · collect 125 · launch 119 · jobs 98 · templates 86 · objects 85 · metrics 50 ·
+  main 47 · storage 46 · state 38 · exec_policy 28 (counting rule: no blanks, comments, docstrings).
+Consequence: B6 (file analysis) cannot fit without either a reduction pass or a team decision on the budget
+  (a budget change needs a four-person change request, CLAUDE.md rule 8). Raised with Manas in HANDOFFS.md.
+Reduction candidates for a later pass, after Linux results: merge the duplicated env-row lookups in collect.py
+  and jobs.py; shorter error-message branches in templates.py/launch.py; one shared "service actor" helper.
+
+### Budget reduction pass · services/runner 857 -> 850 code lines   2026-11-26 · owner B
+Manas asked for a reduction pass before any budget CR. Done: removed the one-implementation DockerWork Protocol
+and three never-read Template fields; no unused module-level names found. The rest is required behaviour
+(listed in team/parth/work/CR_PROPOSAL_runner_budget.md). Still over: 850/800 code, 1185 physical. The
+over-budget line is now backed by that proposal (request 1000, B6 included as an estimate, B7 excluded).
