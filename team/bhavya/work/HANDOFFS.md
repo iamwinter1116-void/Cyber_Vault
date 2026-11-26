@@ -161,3 +161,26 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
 NEXT: Open PR from work/bhavya to integration for Manas review; start C3 once contracts/openapi.yaml is merged.
 ```
 
+```
+TASK: Quota-safe RBAC fixtures + BR1..BR4 (T-RBAC-09..12) + PROBE_CONTRACT.md v2 alignment (T-RES-01..03, T-WL-01, T-ISO-06)
+STATUS: partial (all local tests pass; live-stack and Linux/runsc host tests remain unrun until primary VM stack is up)
+CHANGED:
+  - tests/contract/test_rbac_matrix.py (module-scoped real_rbac_ids fixture with cleanup, exec job instead of stub-vulnerable, real BR1..BR4 409 checks in T-RBAC-09..12)
+  - tests/security/test_resources.py (T-RES-01 alert.oom_killed <=5s, env.oom_killed audit, neighbor 1s loop; T-RES-02 30s healthz/neighbor window + destroy <=15s; T-RES-03 exit_code==1 + errno==ENOSPC + bytes_written<=storage_mb*1048576)
+  - tests/security/test_workloads.py (T-WL-01 probe_dns target 3 resolved==False)
+  - tests/security/test_isolation.py (T-ISO-06 cap_eff==0000000000000000 + EROFS/read-only error check)
+COMMANDS RUN (with exit codes):
+  $ python -m py_compile ... -> 0
+  $ git -C d:\Cyber_Vault diff --check -> 0
+  $ python -m pytest d:\Cyber_Vault\tests\contract --collect-only -q -> 0 (216 tests collected in 1.97s)
+  $ python -m pytest d:\Cyber_Vault\tests\security --collect-only -q -> 0 (28 tests collected in 0.98s)
+  $ python -m pytest d:\Cyber_Vault\tests\e2e --collect-only -q -> 0 (4 tests collected in 0.52s)
+  $ python -m pytest tests/contract/test_rbac_matrix.py::test_t_rbac_05_registered_routes_match_matrix tests/contract/test_audit_vectors.py tests/security/test_isolation.py::test_t_static_01_compose_and_runner_no_dangerous_flags -q -> 0 (31 passed in 20.54s)
+TESTS:
+  - Passed locally (31): T-RBAC-05, T-KAT-01..04 (core + verifier), T-AUD-05 (60 Hypothesis examples), T-STATIC-01
+  - Still requires Linux/runsc host + full Compose stack: T-ISO-01..07, T-RES-01..06, T-AUD-01..04, 06..08, T-MON-01..04, T-WL-01..03, T-E2E-01..04, T-RBAC-01..03, 07, 09..12, T-AUTH-01..05, T-API-01
+CONTRACT CONFLICT FOR TEAM REVIEW:
+  - T-RES-02 (docs/06_VERIFICATION.md s5): docs/06 states "afterwards the environment stops and is removed within 15 s", whereas services/runner has no automatic post-fork-bomb stop rule. Test currently issues DELETE /envs/{id} after the 30 s stress window and asserts removal <= 15 s; team decision needed on whether runner should auto-stop on fork-bomb or docs/06 should be updated via CR.
+NEXT: Manas reviews PR from work/bhavya to integration; Bhavya runs live suites on primary VM and starts C3 once contracts/openapi.yaml lands.
+```
+

@@ -31,6 +31,8 @@ def test_t_wl_01_app_target_connectivity_and_isolation(stack_url: str) -> None:
     env_b = create_env_and_wait(cb, csrfb, "wl-01-bravo")
     ok = exec_in_env(ca, csrfa, env_a["id"], "curl -s -o /dev/null -w '%{http_code}' http://target:8080/")
     assert "200" in ok["result"]["output"]
+    dns_blocked = exec_in_env(cb, csrfb, env_b["id"], "probe_dns target 3")
+    assert json.loads(dns_blocked["result"]["output"].strip().splitlines()[-1])["resolved"] is False
     blocked = exec_in_env(cb, csrfb, env_b["id"], "probe_connect target 8080 3")
     assert json.loads(blocked["result"]["output"].strip().splitlines()[-1])["reachable"] is False
 

@@ -163,13 +163,17 @@ def test_t_iso_06_env_mounts_socket_and_flags(stack_url: str) -> None:
     info = json.loads(env_job["result"]["output"].strip().splitlines()[-1])
     assert not any(v.startswith("ABH_") for v in info["env_vars"])
     assert info["uid"] == 1000
+    assert info.get("cap_eff") == "0000000000000000", f"Non-empty CapEff: {info.get('cap_eff')}"
     assert "mounts" in info and isinstance(info["mounts"], list), f"probe_env missing mounts: {info}"
     assert not any("docker.sock" in str(m) for m in info["mounts"])
     sock_check = exec_in_env(ca, csrfa, env_a["id"], "test -e /var/run/docker.sock")
     assert sock_check["result"]["exit_code"] != 0
 
     w_job = exec_in_env(ca, csrfa, env_a["id"], "probe_write /etc/abhedya_test")
-    assert json.loads(w_job["result"]["output"].strip().splitlines()[-1])["ok"] is False
+    w_out = json.loads(w_job["result"]["output"].strip().splitlines()[-1])
+    assert w_out["ok"] is False
+    err_txt = str(w_out.get("error") or "").lower()
+    assert "erofs" in err_txt or "read-only" in err_txt, f"Expected read-only error (EROFS), got {w_out}"
 
     host_flag = exec_in_env(cb, csrfb, env_b["id"], "cat /var/lib/abhedya/flag_host")
     assert host_flag["result"]["exit_code"] != 0
