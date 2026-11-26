@@ -3,6 +3,8 @@
 Version: 1.0 · Applies to the four-person build team · Maintainer: Manas
 
 This is the current operating agreement for task ownership, file boundaries, reviews, and branch movement.
+Read `docs/16_BUILD_NOW_HOST_LATER.md` for the current execution order. Its local-first decision replaces
+the VM-first sequencing below; the exact ownership boundaries and host acceptance tests remain in force.
 It supersedes the older three-person assignment tables in the v2 instruction pack where they conflict.
 The machine-readable contracts remain frozen and authoritative; this document does not change them.
 
@@ -32,8 +34,9 @@ push their `work/<name>` branch.
 | Henil | A · identity, API, quota and audit services | `core/abh_core/`, `services/api/`, `services/notary/`, their unit tests | O2, O6, O7 ledger side; API/quota sides of O3, O4, O5 and O8 | WSL 2 on the 16 GB Lenovo for code and unit tests; full stack checks on Manas's primary VM |
 | Bhavya | C · console, independent verifier and test author | `web/`, `tools/verify_audit.py`, `tests/contract/`, `tests/security/`, `tests/e2e/`, `evidence/` | O8, O7 verifier side, display side of O4, contract/security/e2e proof | WSL 2 on the 16 GB Ryzen 7 laptop for editing and light checks; stack-dependent tests on Manas's primary VM |
 
-The GPU is not needed for any mandatory objective. The AI workload uses the offline stub target and the agreed
-probe set. Do not add a model download, GPU service, network exception, or GPU-dependent mandatory test.
+The GPU is not needed for the currently approved local slices. The original AI workload uses an offline model stub,
+which conflicts with the current no-stub instruction. Treat O9's AI target as pending a four-person change request;
+do not add a model download, GPU service, network exception, or GPU-dependent mandatory test without that decision.
 Any real model/GPU experiment belongs to stretch S8 after G4, behind its flag, with its isolation effects tested.
 
 ## 3. Exact directory ownership
@@ -102,7 +105,7 @@ Manas is the only person who merges any contributor branch into `integration` or
 - Own the VM snapshot, offline images/dependencies, TLS setup, `compose.yaml`, and primary demo stack lifecycle.
 - Verify CPU, virtualization, free disk, host OS, hypervisor, networking, `runsc`, and available memory rather than
   assuming the model number guarantees a configuration.
-- Do not use the RTX GPU for a mandatory workload. The required AI target remains the in-repository offline stub.
+- Do not use the RTX GPU for a mandatory workload without an approved O9 target change request.
 - Only Manas runs `make up`, `make down`, and `make demo-reset` on the primary Docker daemon.
 
 ### Parth — runtime engineer and backup host
