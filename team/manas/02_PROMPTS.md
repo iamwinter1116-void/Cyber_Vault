@@ -17,7 +17,9 @@ the handoff records the branch workflow; branch protection is verified or explic
 
 Create only the shared build files you own: `Makefile`, `compose.yaml`, `.github/` workflow, and `db/init/` application
 wrapper. Use the canonical target names from `docs/04_CONTRACTS.md` section 11. Ask Henil, Parth and Bhavya for exact
-service build/start/health commands before wiring them. Do not create fake service stubs outside an explicitly named G0 stub.
+service build/start/health commands before wiring them. Do not create any fake service or G0 route stub.
+Current instruction: `docs/16_BUILD_NOW_HOST_LATER.md` forbids all implementation stubs, including `STUB-G0`.
+Wire only commands and services that actually exist; report missing pieces as pending, not successful.
 
 Done when: every target resolves to a documented command; the database applies the frozen schema; secrets are read from
 ignored files; the proxy is the only published service; service blocks remain isolated and can be filled by their owners.

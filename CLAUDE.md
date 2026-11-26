@@ -7,6 +7,10 @@ machine for a local agent session; if it is missing, stop and ask for it.
 
 ## Current state
 
+Current work order: read `docs/16_BUILD_NOW_HOST_LATER.md` before choosing a task. Build real local slices now;
+keep Linux-host acceptance pending until an actual host is available. No mock, simulated success, 501 route stub,
+or placeholder gate pass. The current work-order decision suspends older VM-first and `STUB-G0` instructions.
+
 This repository currently contains the instruction pack, frozen contracts, and planning documents. The product
 implementation folders are not present yet. Do not claim an objective is implemented until the code and required
 evidence are in the shared repository and the specified tests pass on the required host.
@@ -19,6 +23,7 @@ evidence are in the shared repository and the specified tests pass on the requir
 - `docs/05_OBJECTIVES.md` and `docs/06_VERIFICATION.md`: objective definition of done and exact test IDs.
 - `docs/09_BUG_JOURNAL.md`: known risks and change-request format.
 - `docs/TEAM_OWNERSHIP_AND_BRANCHING.md`: current four-person ownership, file boundaries, branch route and merge rule.
+- `docs/16_BUILD_NOW_HOST_LATER.md`: current parallel work order and separation of local evidence from host acceptance.
 - `docs/specs/`: detailed product/technical/backend/architecture specifications; frozen contracts take precedence.
 - `team/<person>/`: each person's setup and prompts. Only `team/<person>/work/` is freely editable by that person.
 

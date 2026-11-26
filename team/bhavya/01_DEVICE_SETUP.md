@@ -24,7 +24,8 @@ Manas can authorize a handoff to Parth's prepared cold backup VM.
 
 ## 3. Browser and UI development
 
-The mandatory AI workload remains an offline stub; the RTX 3050 is not needed. For local console development,
+The original AI target is pending a four-person change request under `docs/16_BUILD_NOW_HOST_LATER.md`; the RTX 3050
+is not needed for the current local work. For local console development,
 coordinate with Manas on the approved proxy/dev-server URL. Session cookies use `Secure` and `SameSite=Strict`,
 so test login over the configured HTTPS path rather than weakening cookie flags to accommodate local HTTP.
 
