@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import time
 
 from .conftest import API_BASE, create_env_and_wait, docker_managed_inspect, exec_in_env, login_as
 
+# Official 68-byte EICAR Standard Anti-Virus Test File (source: https://www.eicar.org/download-anti-virus-testfile/)
 EICAR_BYTES = rb"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
@@ -34,7 +36,7 @@ def test_t_wl_01_app_target_connectivity_and_isolation(stack_url: str) -> None:
 
 
 def test_t_wl_02_file_analysis_eicar_benign_and_cleanup(stack_url: str) -> None:
-    """T-WL-02: EICAR -> malicious, benign -> clean, no leftover containers/networks/volumes."""
+    """T-WL-02: EICAR -> malicious, benign -> clean, detonation network fails, mode 0400, zero leftovers."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     r_mal = ca.post(
         f"{API_BASE}/files",
@@ -55,8 +57,28 @@ def test_t_wl_02_file_analysis_eicar_benign_and_cleanup(stack_url: str) -> None:
     assert r_ben.status_code == 202
     j_ben = _wait_job(ca, r_ben.json()["id"])
     assert j_ben["result"]["verdict"] == "clean"
-    leaked = [c for c in docker_managed_inspect() if c["Config"]["Labels"].get("abh.env_id") in (j_mal["env_id"], j_ben["env_id"])]
-    assert not leaked
+
+    det_script = b"#!/bin/sh\nprobe_connect 1.1.1.1 443 3\n"
+    r_det = ca.post(
+        f"{API_BASE}/files",
+        headers={"X-CSRF-Token": csrfa},
+        files={"file": ("net_probe.sh", det_script, "text/x-shellscript")},
+        data={"detonate": "true"},
+    )
+    assert r_det.status_code == 202
+    j_det = _wait_job(ca, r_det.json()["id"])
+    det = j_det["result"]["detonation"]
+    assert det is not None and (det["exit_code"] != 0 or '"reachable": false' in det.get("output_tail", "").lower())
+
+    sha = j_mal["result"]["sha256"]
+    mode = subprocess.run(["docker", "compose", "exec", "-T", "api", "stat", "-c", "%a", f"/quarantine/{sha}"], capture_output=True, text=True, check=False)
+    assert mode.returncode == 0 and mode.stdout.strip() == "400", f"Expected mode 400 on /quarantine/{sha}: {mode.stdout} {mode.stderr}"
+
+    env_ids = {j_mal["env_id"], j_ben["env_id"], j_det["env_id"]}
+    for cmd in (["docker", "ps", "-aq"], ["docker", "network", "ls", "-q"], ["docker", "volume", "ls", "-q"]):
+        for eid in env_ids:
+            out = subprocess.run([*cmd, "--filter", f"label=abh.env_id={eid}"], capture_output=True, text=True, check=False)
+            assert out.returncode == 0 and not out.stdout.strip(), f"Leftover Docker object for {eid}: {out.stdout}"
 
 
 def test_t_wl_03_ai_scan_vulnerable_vs_guarded_offline(stack_url: str) -> None:

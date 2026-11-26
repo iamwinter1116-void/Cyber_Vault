@@ -55,8 +55,8 @@ def build_evidence(repo_root: Path) -> None:
     if bug_src.exists():
         parts.append(bug_src.read_text(encoding="utf-8"))
     for jpath in sorted((repo_root / "team").glob("*/work/JOURNAL.md")):
-        parts.append(f"\n---\n<!-- {jpath.relative_to(repo_root).as_posix()} -->\n" + jpath.read_text(encoding="utf-8"))
-    (ev_dir / "bug-journal.md").write_text("\n".join(parts), encoding="utf-8")
+        parts.append(f"---\n<!-- {jpath.relative_to(repo_root).as_posix()} -->\n" + jpath.read_text(encoding="utf-8").strip())
+    (ev_dir / "bug-journal.md").write_text("\n\n".join(p.strip() for p in parts if p.strip()) + "\n", encoding="utf-8")
 
     results = _parse_junit_results(ev_dir / "tests")
     lines = ["# Evidence Index (generated)", "", "| Objective | Description | Test ID | Status | Evidence |", "| --- | --- | --- | --- | --- |"]
