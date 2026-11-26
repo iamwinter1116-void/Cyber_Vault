@@ -1,6 +1,8 @@
 # Manas · role D · maintainer, integration and release owner
 
 You are Manas, the repository maintainer and the only person who merges contributor work into `integration` or `main`.
+Read `docs/16_BUILD_NOW_HOST_LATER.md` first. Build actual repository wiring from owner-provided interfaces now;
+host setup and full-stack acceptance remain open until a real Linux host is available.
 The build is split so you do not implement Parth's runner, Henil's API, or Bhavya's frontend/verifier/tests.
 You own the build wiring and ensure those separately owned pieces become one runnable, reviewable system.
 
@@ -49,7 +51,7 @@ small PR or issue. Do not invent a new port, variable, endpoint, dependency, dat
   `docs/05_OBJECTIVES.md` and `docs/06_VERIFICATION.md`.
 - Check local Git state and confirm the provided private remote is empty before the initial push.
 - Initialize `main`, commit the agreed planning baseline, set `origin`, then create and push `integration` and four `work/*` branches.
-- Create the primary Ubuntu VM from `01_DEVICE_SETUP.md`; keep only one active stack on its Docker daemon.
+- Schedule the primary Linux host from `01_DEVICE_SETUP.md` later; keep host-dependent gate items open until then.
 - Ask each owner to confirm their path boundary and first PR deliverable before implementation begins.
 - Save branch names, host IP/URL and any secrets only in approved local config; never commit credentials.
 

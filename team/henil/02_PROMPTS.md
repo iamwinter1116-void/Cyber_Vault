@@ -4,12 +4,14 @@
 **You lead:** O2 (login and RBAC), O6 (central audit), O7 ledger side; you supply the API half of O3, O4, O5, O8.
 **You never touch:** `contracts/`, `docs/`, `services/runner/`, `sandbox/`, `web/`, `tools/`, `tests/contract`, `tests/security`, other people's folders under `team/`.
 **Where you run:** WSL 2 on your Legion for code, unit tests and your own PostgreSQL (`01_DEVICE_SETUP.md`). Anything that needs the runner or the full stack runs on the demo VM over SSH. In this file B is Parth and C is Bhavya.
+**Current sequence:** `docs/16_BUILD_NOW_HOST_LATER.md` puts real A1 core/audit work before A0 API routes.
+Do not write or register 501/`STUB-G0` routes. A0 is complete only when its routes have real behavior and tests.
 
 ## What others need from you, and when
 
 | By | Deliver | Who waits |
 | --- | --- | --- |
-| G0 | Pydantic schemas for every shape in `04` section 4, route stubs for all 31 rules, `make openapi` output committed | C (typed client, Schemathesis) |
+| Local first | A1 core audit and database interface, then real API routes in contract order; OpenAPI only from implemented routes | B, C, D |
 | T0 + 4 h | `abh_core.audit` (`canonical`, `record_hash`, `merkle_root`, `append`) and `abh_core.settings`, `abh_core.db` | B (runner audits through it) |
 | G1 | Login, `GET /auth/me`, `POST /envs`, `GET /envs`, `GET /audit`, `GET /audit/export`, notary producing checkpoints | B, C |
 | G2 | Every rule in the matrix implemented | everyone |
@@ -23,19 +25,17 @@
 
 ---
 
-### A0 · Schemas and route skeleton (gate G0, about 45 minutes)
+### A0 · Schemas and real route implementation (after A1; no 501 placeholders)
 ```
 Task A0. Read docs/04_CONTRACTS.md sections 2, 3, 4 and contracts/rbac_matrix.yaml.
-Create services/api with: schemas.py holding one pydantic model per shape in section 4 and per request body in
-section 3 (unknown fields forbidden on input; output models list fields explicitly); one router module per
-resource group; a route for each of the 31 rules with the exact method, path, status code and response model.
-Route bodies may, for this task only, raise an HTTP 501 through one helper named stub_g0(); mark each with the
-comment STUB-G0. Add the make openapi command's implementation (dump the app's OpenAPI document to
-contracts/openapi.yaml through a script, not by hand).
-Constraints: no business logic, no database access yet. Dependencies only from the allowlist, each verified on
-the registry and recorded in evidence/VERSIONS.lock before install.
-Done when: `make openapi` writes a file that lists 31 operations; a script prints that the set of
-(method, path) pairs in the OpenAPI document equals the set in rbac_matrix.yaml; `make check-fast` exits 0.
+Create `services/api/schemas.py` with contract request and response models (unknown fields forbidden on input;
+explicit output fields). Add a route only when its authorization, transaction, response and error behavior are real
+and tested. Start with A2 authentication and the G1 paths; continue until all 31 matrix rules are implemented.
+Generate `contracts/openapi.yaml` from the implemented FastAPI app, never by hand or from placeholder routes.
+The frozen matrix remains the target; report each missing rule as pending until the full set is implemented.
+Dependencies must be allowlisted, registry-checked and recorded before installation.
+Done when all 31 routes have real behavior, their contract tests pass, the generated operation set equals the
+matrix, and `make check-fast` exits 0. Until then, hand off each real route slice as incomplete A0.
 ```
 
 ### A1 · Core library and audit append (about 90 minutes) · tests T-KAT-01 to 03 (core side), unit tests
@@ -92,8 +92,8 @@ routes with the matrix and exit with a clear message on any difference.
 Implement R04 to R10 with business rules BR1 and BR2. A 404 for another team's object must be byte-identical
 to the 404 for an unknown id. Disabling a user or changing a role deletes that user's sessions in the same
 transaction.
-Done when: `pytest tests/contract/test_rbac_matrix.py -q` passes for the rules implemented so far and reports
-the remaining rules as failing only because of STUB-G0 (list them); T-RBAC-05, 06, 08, 09, 10 pass.
+Done when targeted tests for the implemented rules pass with real PostgreSQL and their output is recorded.
+List every unimplemented matrix rule as pending; T-RBAC-05 cannot pass until all 31 real routes are registered.
 ```
 
 ### A4 · Environments, jobs, files, AI scans, quotas (about 2.5 hours) · tests T-RES-05, T-AUD-01, 02, 07, T-RBAC-11, 12
@@ -104,12 +104,14 @@ Implement R11 to R21 using the single state-change pattern of docs/08 section 7:
 the row lock on the team, the quota and host-capacity check, the insert or update, and the audit append.
 R12 accepts only template app-target. R20 streams the upload to the quarantine directory while hashing and
 enforcing 10 MiB, stores it as <sha256> with mode 0400, creates an S file-analysis environment with TTL 10
-minutes and a job. R21 creates an M ai-redteam environment and a job. R14, R15 set desired_state. R17 refuses
+minutes and a job. R21 remains pending until the team approves a real AI target change request; do not queue a
+job to a missing or simulated target. R14, R15 set desired_state. R17 refuses
 with ENV_NOT_RUNNING unless observed_state is running, and records only the command's SHA-256 and first 200
 characters in the audit detail.
 Write the atomicity test T-AUD-07 yourself as a unit test too: when the audit insert fails, the state change
 must be absent.
-Done when: the listed tests pass with output; no STUB-G0 remains in these routes; `make check-fast` exits 0.
+Done when all implemented routes have real behavior and applicable tests pass with output; list R21 and any
+host-dependent tests as pending until their actual acceptance criteria can be met.
 ```
 
 ### A5 · Stream, events, metrics, overview, kill switch (about 2 hours) · tests T-MON-01, 03, 04 (API side)

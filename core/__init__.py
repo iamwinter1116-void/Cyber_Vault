@@ -1,0 +1,1 @@
+"""ABHEDYA shared core namespace."""
