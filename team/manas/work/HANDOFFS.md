@@ -317,3 +317,26 @@ REVIEW: T-RES-01 alert timing still is not tied to the OOM timestamp; T-RES-02 d
   a recorded cut decision. No live security test was run here.
 NEXT: Bhavya revises PR #20; all four review image/dependency and runner-budget CRs. Manas wires real
   services only after owner images and package decisions, then runs OpenAPI and local integration checks.
+
+## 2026-11-26 · Manas real console integration slice
+
+TASK: Continue the solo implementation with a real React console slice that can be built locally and consumes only implemented API behavior.
+STATUS: Partial. The frontend builds; API-backed login and the integrated environment journey are not runnable because the current Compose stack has only PostgreSQL and the local Python environment lacks recorded runtime dependencies. No objective or gate is green.
+CHANGED: `web/src/api.ts`, `web/src/ui/App.tsx`, `web/src/ui/styles.css`, `web/README.md`, `.gitignore`. Session refresh calls `/auth/me`; login confirms the cookie-backed session before changing to authenticated UI; activity connects to `/stream`; isolation status uses the API overview response. Removed remote Google Fonts and bound Vite to loopback. Added ignores for generated web output. `web/src` is 238/1800 counted source lines.
+COMMANDS RUN (Manas Windows laptop, branch `work/manas`):
+  - `npm run build` in `web/` -> exit 0; TypeScript and Vite completed, 17 modules transformed.
+  - `npm audit --audit-level=low` -> exit 0; `found 0 vulnerabilities`.
+  - `git diff --check` -> exit 0.
+  - `docker compose ps` -> exit 0; existing `sfic-db-1` Up/healthy; it was not restarted or modified.
+  - `docker compose exec -T db pg_isready -U postgres -d abhedya` -> exit 0; accepting connections.
+  - Read-only PostgreSQL query -> exit 0; `abhedya|9`; `abh_api`, `abh_runner`, `abh_notary` are all non-superuser/non-createdb; audit triggers `audit_no_truncate`, `audit_no_update_delete`, `audit_notify_trg` present.
+  - `make budget-report` and `make check-fast` -> exit 1 at report: core 180/300; runner 850/800 OVER; API 2000/1100 OVER; sandbox MISSING/450; notary 131/150; verifier 144/180; web 238/1800; host 136/150. Later fast checks did not run.
+  - `python -m pytest tests/unit -q` -> exit 1 during collection; six API/core/notary modules cannot import missing `psycopg`.
+  - `python -m pytest tests/contract/test_audit_vectors.py -q` -> exit 1 during collection; missing `hypothesis`.
+  - `python tools/verify_audit.py --help` -> exit 0; CLI help printed.
+VERIFIED FACTS: frontend build and npm audit results above; live local PostgreSQL health, schema-table count and role/trigger facts above. Docker Desktop/PostgreSQL checks are local integration evidence only, not Linux/runsc acceptance.
+UNVERIFIED / ASSUMED: no browser-to-API session, SSE, or end-to-end journey; no real API or proxy service exists in Compose. No sandbox provisioning, runsc, host isolation, security suite, or gate acceptance was attempted. Frontend direct and transitive packages are in the npm lock; the package/transitive approval CR remains pending.
+DEGRADED PATHS: none.
+NEW DEPENDENCIES: frontend uses direct packages React 19.3.1, React DOM 19.3.1, Vite 8.4.0, TypeScript 7.0.2, and React type packages; registry evidence and lock hashes are in `web/DEPENDENCIES.md` / `web/package-lock.json`. No package was installed during this session. Formal transitive-package approval remains pending.
+OPEN RISKS / QUESTIONS FOR HUMANS: approve or reject the pending dependency and runner-budget CRs; full API stack integration requires Python dependency lock approval plus service build/start/health definitions. Linux host acceptance remains outstanding.
+NEXT: M2 service integration after dependency/image decisions; meanwhile continue only independent work that does not rely on unapproved dependencies or change frozen contracts/budgets.

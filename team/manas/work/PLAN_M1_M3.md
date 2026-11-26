@@ -44,6 +44,8 @@ Additional local database evidence: after PR #14 recorded the runner's direct pa
 
 Use the actual implementation handoffs and approved image/build definitions, runtime command, health response, and dependency pins for `api`, `runner`, `notary`, and `proxy`. As sole implementer, reconcile any stale or incomplete interface directly in its owning code and this Compose work, preserving contracts. Verify only the proxy publishes a host port and only runner mounts the Docker socket. Run a clean stack and service-level health checks on Docker Desktop as local integration evidence. Leave Linux isolation acceptance open.
 
+Independent console slice started 26 November 2026: `web/` now has a real React/Vite UI for implemented API routes, cookie-backed session restoration, authenticated activity SSE, and live API overview fields. `npm run build` and `npm audit --audit-level=low` pass locally. This does not complete phase 2: Compose still contains only `db`, no browser-to-API journey was run, and Python/image dependency decisions remain unresolved. See the matching handoff.
+
 ## Phase 3 — CI and fast checks
 
 Wire a pinned CI workflow to executable Make targets. Include strict lint/type/unit checks, OpenAPI drift and placeholder checks when their dependencies and generated contract exist. Fail on missing prerequisites. Verify the workflow on a real PR.
