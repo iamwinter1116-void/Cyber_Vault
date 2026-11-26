@@ -236,3 +236,30 @@ STATUS: PR #16 merged at integration `0833e1c`; implementation coverage unchange
 COMMANDS RUN: On detached `7f86459` (Windows), `python -m pytest` over six pure runner modules -> 50 passed, exit 0. The guarded `tests/unit/runner/live_pg_suite.py` on a fresh disposable `abhedya_test` PostgreSQL project -> 14 passed in 2.49s, exit 0. The disposable project and volume were removed (`down -v` exit 0); normal `db` remained healthy. `git diff --check` -> 0.
 VERIFIED: The code change removes unused runtime fields and a type-only protocol; no sandbox policy code changed. Parth's recorded count is now 850/800 non-test runner lines, still over budget.
 UNVERIFIED: Docker/runsc behavior, sandbox images, host acceptance, and the proposed 1000-line budget and base images. All four approvals remain required for a budget or dependency-contract change.
+
+## 2026-11-26 · Manas M1 budget reporting and PR #20/#21 review
+
+TASK: Review Bhavya's PR #20 and Parth's PR #21; make the documented code budgets visible from `make check-fast`.
+STATUS: PR #21 merged as docs only. PR #20 held for owner fixes. M1 budget-report slice written locally;
+  `make check-fast` remains red because existing overages and absent components are reported as failures.
+CHANGED: `db/init/report_budgets.py`, `Makefile`, `team/manas/work/PROGRESS.md`, this handoff.
+COMMANDS AND RESULTS (Manas Windows host, work/manas before commit):
+  `python db/init/report_budgets.py` -> exit 1; core 180/300, runner 850/800 OVER, API 2000/1100 OVER,
+  notary 131/150, verifier 144/180, host 136/150, sandbox/web missing.
+  `make check-fast` -> exit 1 at the new budget report; later ruff/mypy/TypeScript/unit steps did not run.
+  `python -m pytest tests/unit/runner/test_launch.py tests/unit/runner/test_templates.py
+   tests/unit/runner/test_state.py tests/unit/runner/test_storage.py tests/unit/runner/test_metrics.py
+   tests/unit/runner/test_exec_policy.py -q` -> exit 0, 50 passed in 0.10 s.
+  `python -m compileall -q db/init/report_budgets.py` -> exit 0. `git diff --check` -> exit 0.
+REVIEW: PR #20 (`cdc62e9`) owner paths only, local tests reported by Bhavya but live tests unrun. Held because
+  its module RBAC fixture requests R17 immediately after R12 without waiting for observed_state=running;
+  T-RES-01's 5 s alert timer begins after up to 30 s of job polling, T-RES-02 checks only the DB row after
+  DELETE, T-RES-03 omits host-space and neighbour conditions, T-RES-05 permits 201, and T-RES-06 inspects
+  only containers. T-ISO-04 probes only toolbox, not target; T-WL-01 resolves `target` from bravo's own
+  app-target network, which may resolve bravo's target rather than test alpha's name.
+UNVERIFIED: no Linux/runsc acceptance; the budget count follows Python tokenizer non-comment lines excluding
+  docstrings and plain source-line counting elsewhere. It reproduces Parth's 850 runner count; owner CRs are
+  still pending. No objective or gate green. `contracts/openapi.yaml` remains absent.
+NEXT: ask Bhavya to correct PR #20's live-test setup and assertions; request owner decision on dependency
+  transitives so Manas can generate OpenAPI with recorded packages. Continue M1 Compose once owners provide
+  build images, startup/health commands and approved dependency/image decisions.
