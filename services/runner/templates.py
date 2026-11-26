@@ -1,13 +1,14 @@
 """Template policy for sandbox/templates/<name>/template.yaml (docs/04_CONTRACTS.md sections 4 and 8, D12).
 
-This module validates an already-parsed template mapping. Reading the YAML file needs ``pyyaml``, which is
-allowlisted but not yet registry-checked into evidence/VERSIONS.lock, so file loading is not implemented here.
+parse_template validates a parsed mapping; load_template reads the file with PyYAML (allowlisted; its
+registry check is pending in evidence/VERSIONS.lock, so load_template has not been run yet).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from services.runner.launch import DIGEST_RE, ContainerSpec, EnvRow, ProfileError
 
 # section 8: the container set of each template
@@ -77,6 +78,19 @@ def parse_template(data: object) -> Template:
     if sum(c.share_pct for c in containers) != 100:
         raise ProfileError(f"{name}: share_pct values must sum to 100")
     return Template(name, str(data["title"]), desc, tuple(sizes), containers)
+
+
+def load_template(templates_dir: Path, name: str) -> Template:
+    """Read sandbox/templates/<name>/template.yaml with yaml.safe_load (PyYAML; safe for untrusted input)."""
+    import yaml  # PyYAML, allowlisted; imported here so the pure validators above need no third-party package
+
+    if name not in TEMPLATE_CONTAINERS:
+        raise ProfileError(f"unknown template {name!r}")
+    with open(templates_dir / name / "template.yaml", encoding="utf-8") as f:
+        template = parse_template(yaml.safe_load(f))
+    if template.name != name:
+        raise ProfileError(f"{templates_dir / name}/template.yaml names {template.name!r}")
+    return template
 
 
 def split(total: int, shares: Sequence[int]) -> list[int]:

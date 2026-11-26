@@ -15,7 +15,7 @@ from services.runner.net import network_create_kwargs
 ENV = EnvRow("0b6f0c1e-1111-4222-8333-444455556666", "7d2a4f00-aaaa-4bbb-8ccc-dddddddddddd", "app-target",
              500, 256, 128, 128)
 IMG = "sha256:" + "ab" * 32
-VOL = {"Target": "/workspace", "Source": "abh-vol-x", "Type": "volume", "ReadOnly": False}
+VOL = {"Target": "/workspace", "Source": f"abh-vol-{ENV.id}", "Type": "volume", "ReadOnly": False}
 GV = choose_runtime("runsc", {"runc", "runsc"}, allow_degraded=False)
 
 
@@ -95,6 +95,16 @@ class Refusals(unittest.TestCase):
     def test_workspace_never_a_host_directory(self) -> None:
         self.refuse(spec(), {"Target": "/workspace", "Source": "/etc", "Type": "bind", "ReadOnly": False})
         self.refuse(spec(), {"Target": "/", "Source": "v", "Type": "volume"})
+        self.refuse(spec(), {**VOL, "Source": "abh-vol-other-env"})
+        self.refuse(spec(), {**VOL, "BindOptions": {}})
+        self.refuse(spec(), {"Target": "/workspace", "Type": "tmpfs", "Options": "size=16m"})  # no uid/gid
+        self.refuse(spec(), {"Target": "/workspace", "Type": "tmpfs", "Options": "size=16m,uid=1000,gid=1000,exec"})
+
+    def test_tmpfs_workspace_v3(self) -> None:
+        ws = {"Target": "/workspace", "Type": "tmpfs", "Options": "size=128m,uid=1000,gid=1000"}
+        k = build_create_kwargs(ENV, spec(), GV, ws)
+        self.assertEqual(k["mounts"], [])
+        self.assertEqual(k["tmpfs"], {"/tmp": "rw,noexec,nosuid,size=64m", "/workspace": "size=128m,uid=1000,gid=1000"})
 
     def test_bad_container_name(self) -> None:
         self.refuse(spec(name="../x"))

@@ -17,6 +17,7 @@ CONTAINER_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
 SANDBOX_USER = "1000:1000"
 TMP_TMPFS = {"/tmp": "rw,noexec,nosuid,size=64m"}
 WORKSPACE = "/workspace"
+TMPFS_OPTS_RE = re.compile(r"^size=[1-9][0-9]*m,uid=1000,gid=1000$")
 
 
 class ProfileError(ValueError):
@@ -80,6 +81,10 @@ def net_name(env: EnvRow) -> str:
     return f"abh-env-{env.id}"
 
 
+def volume_name(env: EnvRow) -> str:
+    return f"abh-vol-{env.id}"
+
+
 def labels(env: EnvRow) -> dict[str, str]:
     return {"abh.managed": "true", "abh.env_id": env.id, "abh.team_id": env.team_id, "abh.template": env.template}
 
@@ -97,8 +102,12 @@ def _check(env: EnvRow, spec: ContainerSpec, workspace: Mapping[str, object]) ->
     for n in (spec.cpu_millis, spec.mem_mb, env.pids_limit):
         if not isinstance(n, int) or isinstance(n, bool) or n <= 0:
             raise ProfileError(f"limits must be positive integers, got {n!r}")
-    if workspace.get("Target") != WORKSPACE or workspace.get("Type") not in ("volume", "tmpfs"):
-        raise ProfileError("workspace must be a volume or tmpfs mount at /workspace, never a host directory")
+    volume = {"Target": WORKSPACE, "Source": volume_name(env), "Type": "volume", "ReadOnly": False}
+    if dict(workspace) != volume and not (
+        set(workspace) == {"Target", "Type", "Options"} and workspace["Target"] == WORKSPACE
+        and workspace["Type"] == "tmpfs" and TMPFS_OPTS_RE.match(str(workspace["Options"]))
+    ):
+        raise ProfileError("workspace must be this env's volume or a sized tmpfs at /workspace, never a host directory")
 
 
 def build_create_kwargs(
@@ -106,7 +115,7 @@ def build_create_kwargs(
 ) -> dict[str, object]:
     """Every section 8 setting for one container, as docker-py ``containers.create`` keyword arguments.
 
-    Only the /tmp tmpfs and the workspace mount are produced; the file-analysis sample mount (B6) is not
+    Only /tmp and the workspace (a volume, or a tmpfs for storage V3) are produced; the file-analysis sample mount (B6) is not
     implemented here, so no third mount can be requested.
     """
     _check(env, spec, workspace)
@@ -122,7 +131,7 @@ def build_create_kwargs(
         "read_only": True,
         "privileged": False,
         "tmpfs": dict(TMP_TMPFS),
-        "mounts": [dict(workspace)],
+        "mounts": [],
         "nano_cpus": spec.cpu_millis * 1_000_000,
         "mem_limit": f"{spec.mem_mb}m",
         "memswap_limit": f"{spec.mem_mb}m",
@@ -130,6 +139,10 @@ def build_create_kwargs(
         "environment": dict(spec.env),
         "labels": labels(env),
     }
+    if workspace["Type"] == "tmpfs":  # storage V3: HostConfig.Tmpfs, the form B0 check 8 tests
+        kwargs["tmpfs"] = {**TMP_TMPFS, WORKSPACE: str(workspace["Options"])}
+    else:
+        kwargs["mounts"] = [dict(workspace)]
     if spec.network_none:
         kwargs["network_mode"] = "none"
     else:
