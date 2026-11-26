@@ -199,3 +199,35 @@ FOR MANAS (DB test on a DISPOSABLE Compose database; it writes permanent audit r
   container on that network or with a temporary port mapping you choose; please paste output and exit code.
 NEXT: B4 collectors (pure threshold logic first), templates/images on a Linux host, then B1 acceptance in a test window.
 ```
+
+## 2026-11-26 · Reaper review cases (Manas) · commit ee0bb65
+
+```
+TASK: Manas's two cleanup cases. STATUS: code done locally; Docker behaviour unexecuted (Linux host pending).
+CASE 1 abh.managed=true object with missing or non-canonical abh.env_id:
+  Before: ignored (labelled_env_ids discarded "" ids; a bogus id reached destroy(), whose remove_image raised).
+  Now: found by the reaper's label listing (_managed: containers, networks, volumes filtered abh.managed=true);
+  removed directly by remove_unowned() in that order (containers first so networks/volumes are free).
+  Contract basis: section 8 lifetime "The reaper removes any labelled object whose env row is destroyed or
+  missing"; an object with no usable env id has no row, so this is the "missing" case. No CR needed, in my reading.
+  Risk to state: anything else on the daemon labelled abh.managed=true is removed; preflight uses abh.preflight=true,
+  and R-23 already requires one stack per daemon.
+CASE 2 V1 image left behind (crash after make_image, before volumes.create):
+  Found: storage.image_env_ids(ABH_VOLUME_DIR) lists regular files named <canonical uuid>.img or .img.tmp; those
+  ids join the labelled ids before the LIVE_SQL check. Removed: destroy(id) -> remove_image. Only files of a non-live
+  env (row destroyed or missing) are removed; requested/provisioning/running/stopped/failed rows keep theirs.
+  Other file names, directories and upper-case ids are never touched. Image files are not Docker objects, so this
+  is implementation detail of docs/08 section 4 V1, not a contract change.
+  Residual (stated, not fixed): a failed env whose cleanup also failed keeps objects/image until its row is destroyed.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib):
+  python -m unittest tests.unit.runner.test_launch tests.unit.runner.test_templates tests.unit.runner.test_state
+    tests.unit.runner.test_storage -> "Ran 32 tests ... OK", exit 0 (new: test_image_env_ids_finds_orphan_images_only,
+    test_canonical_id)
+  compileall exit 0; placeholder grep no hits; 0 CR bytes.
+  Temporary merge of ee0bb65 with origin/work/henil 053e32c: merge exit 0, no conflicts, 32 tests OK; Actor, Outcome,
+    append, record_hash, create_pool, transaction, Settings all still defined there.
+BUDGET: services/runner 781 physical / 557 code lines of 800.
+STILL OPEN: B1, T-ISO-01/02, T-RES-03/06, all Docker/runsc/storage acceptance; test_reconcile_pg.py not yet run
+  (Manas will run it in a disposable Compose project after Bhavya records the dependencies). pids_limit per
+  container remains an interpretation (matches docs/08 section 3 example) until docker inspect and resource tests pass.
+```
