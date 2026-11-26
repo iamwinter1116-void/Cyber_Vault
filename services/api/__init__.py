@@ -1,0 +1,1 @@
+"""ABHEDYA API service."""
