@@ -474,3 +474,32 @@ STANDING OPEN ITEMS: budget 850/800 is an open issue (CR proposed, not approved;
 NEXT: wait for the four-person decisions; then B2 probes + target app per PROBE_CONTRACT.md, local output tests,
   then the Linux test window.
 ```
+
+## 2026-11-26 · Manas decisions on T-RES-02 / T-ISO-04 applied to the runner side · this commit
+
+```
+TASK: Manas (PR #18 merged): T-RES-02 = full 30 s, then explicit delete, removal within 15 s, record the
+  containing limit; T-ISO-04 required for every sandbox shipped; detonator subcheck only if detonation ships.
+STATUS: docs only (my folder). No runner code changed (budget 850/800 open; no growth before the CR).
+  Image and budget CRs still await all four approvals; nothing pulled or built.
+FOUND FROM THE CODE (new):
+  1. services/api/routes/envs.py stop_env writes desired_state + an audit record, no activity event; the first
+     stream event an analyst sees for a stop is the runner's env.state_changed after objects.stop(), which
+     calls container.stop(timeout=10) per container. A PID 1 without a SIGTERM handler ignores SIGTERM on
+     Linux (`sleep infinity`, plain http.server), so app-target would take about 20 s, beyond Bhavya's
+     T-ISO-05 5 s control check. Fix proposed in the image CR (PID 1 handles SIGTERM), zero runner lines.
+     runsc behaviour UNVERIFIED (host plan step 4).
+  2. Delete path: destroy() uses remove(force=True); the loop polls every 1 s, so 15 s is reachable, but a
+     stop/provision claimed in the same pass or the 30 s reap runs before it (serial apply). To be measured
+     under the real test load (host plan step 4); not changed now.
+  3. T-ISO-04 for every shipped sandbox means probes are needed in `target` too (exec reaches it via R17
+     container "target"); added to PROBE_CONTRACT v3 and the image CR. Bhavya's T-ISO-04 runs from toolbox only.
+  4. B4 done-when needs a held allocation for the memory cross-check: mem_hog gets optional hold_s (additive).
+CHANGED: team/parth/work/PROBE_CONTRACT.md (v3: target probes, fork_bomb errno, mem_hog hold_s, Manas's
+  procedures), CR_PROPOSAL_sandbox_images.md (target probes, PID 1 SIGTERM rule, stop-time check),
+  HOST_TEST_PLAN.md (new: every Parth-owned Linux acceptance step in order), this file.
+NOT RUN: anything on Docker/runsc. No gate or objective green.
+FOR BHAVYA: T-ISO-04 should also run from container "target"; T-RES-02 per Manas's procedure (30 s, then
+  DELETE, removal within 15 s, containing limit recorded); fork_bomb JSON now has errno.
+NEXT: four-person decisions on the image and budget CRs; then B2 per PROBE_CONTRACT v3; host plan in Manas's window.
+```
