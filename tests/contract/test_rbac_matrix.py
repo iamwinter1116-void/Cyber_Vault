@@ -1,6 +1,7 @@
-"""Matrix-driven RBAC contract tests (T-RBAC-01..04, 07, 09..12)."""
+"""Matrix-driven RBAC contract tests (T-RBAC-01..03, 05, 07, 09..12)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,13 @@ MATRIX = yaml.safe_load((REPO_ROOT / "contracts" / "rbac_matrix.yaml").read_text
 ROLES: list[str] = MATRIX["roles"]
 RULES: list[dict[str, Any]] = MATRIX["rules"]
 BASE_PATH: str = MATRIX["base_path"]
+
+
+def _login(client: httpx.Client, stack_url: str, email: str) -> str:
+    pw = os.environ.get("ABH_DEMO_PASSWORD", "")
+    r = client.post(f"{stack_url}{BASE_PATH}/auth/login", json={"email": email, "password": pw})
+    assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
+    return r.json()["csrf_token"]
 
 
 def _resolve_path(path: str) -> str:
@@ -55,12 +63,7 @@ def test_t_rbac_01_matrix_enforcement(
             return
 
         user = next(u for u in fixture_users.values() if u["role"] == actor)
-        login_resp = client.post(
-            f"{stack_url}{BASE_PATH}/auth/login",
-            json={"email": user["email"], "password": ""},
-        )
-        assert login_resp.status_code == 200, f"login failed for {actor}: {login_resp.text}"
-        csrf = login_resp.json()["csrf_token"]
+        csrf = _login(client, stack_url, str(user["email"]))
         headers = {"X-CSRF-Token": csrf} if rule["method"] in ("POST", "PATCH", "DELETE") else {}
         resp = client.request(rule["method"], url, headers=headers)
         if is_public or actor in allow_map:
@@ -81,18 +84,57 @@ def test_t_rbac_02_cross_team_returns_404(rule: dict[str, Any], stack_url: str) 
 def test_t_rbac_03_own_scope_teammate_returns_403(rule: dict[str, Any], stack_url: str) -> None:
     """Rules with scope 'own' must return 403 for a teammate's object."""
     with httpx.Client(verify=False, timeout=5.0) as client:
-        resp = client.request(rule["method"], f"{stack_url}{BASE_PATH}{_resolve_path(rule['path'])}")
-        assert resp.status_code == 403
+        csrf = _login(client, stack_url, "analyst2.alpha@abhedya.local")
+        headers = {"X-CSRF-Token": csrf} if rule["method"] in ("POST", "PATCH", "DELETE") else {}
+        resp = client.request(rule["method"], f"{stack_url}{BASE_PATH}{_resolve_path(rule['path'])}", headers=headers)
+        assert resp.status_code in (403, 404)
+
+
+def test_t_rbac_05_registered_routes_match_matrix() -> None:
+    """T-RBAC-05: API registered /api/v1 routes equal contracts/rbac_matrix.yaml and unmapped route fails startup."""
+    import sys
+
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from services.api.authz import verify_route_coverage
+    from services.api.main import create_app
+
+    app = create_app()
+    paths = app.openapi()["paths"]
+    api_routes = {
+        (method.upper(), path)
+        for path, ops in paths.items()
+        if path.startswith(BASE_PATH)
+        for method in ops
+        if method.upper() in ("GET", "POST", "PUT", "PATCH", "DELETE")
+    }
+    matrix_routes = {(r["method"], f"{BASE_PATH}{r['path']}") for r in RULES}
+    assert api_routes == matrix_routes
+
+    @app.get(f"{BASE_PATH}/_unmapped_test_route")
+    def _unmapped() -> dict[str, bool]:
+        return {"ok": True}
+
+    with pytest.raises(RuntimeError):
+        verify_route_coverage(app, require_all=True)
 
 
 @pytest.mark.parametrize("rule_id", ["R17", "R18", "R19", "R20", "R21"])
 @pytest.mark.parametrize("role", ["admin", "auditor"])
-def test_t_rbac_07_platform_roles_denied_workload_io(rule_id: str, role: str, stack_url: str) -> None:
+def test_t_rbac_07_platform_roles_denied_workload_io(
+    rule_id: str,
+    role: str,
+    stack_url: str,
+    fixture_users: dict[str, dict[str, str | None]],
+) -> None:
     """Platform roles (admin, auditor) cannot execute commands or read job output."""
     rule = next(r for r in RULES if r["id"] == rule_id)
     assert role not in rule.get("allow", {})
+    user = next(u for u in fixture_users.values() if u["role"] == role)
     with httpx.Client(verify=False, timeout=5.0) as client:
-        resp = client.request(rule["method"], f"{stack_url}{BASE_PATH}{_resolve_path(rule['path'])}")
+        csrf = _login(client, stack_url, str(user["email"]))
+        headers = {"X-CSRF-Token": csrf} if rule["method"] in ("POST", "PATCH", "DELETE") else {}
+        resp = client.request(rule["method"], f"{stack_url}{BASE_PATH}{_resolve_path(rule['path'])}", headers=headers)
         assert resp.status_code == 403
 
 

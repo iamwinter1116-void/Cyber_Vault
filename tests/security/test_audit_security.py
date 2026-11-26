@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import os
 import subprocess
 import sys
 import time
@@ -58,7 +59,7 @@ def test_t_aud_04_live_tamper_drill_detected_by_verifier(stack_url: str, superus
     admin, _ = login_as(stack_url, "admin@abhedya.local")
     proc = subprocess.run(
         [sys.executable, str(REPO_ROOT / "tools" / "tamper_drill.py"), "--case", "edit_field_no_rehash", "--dsn", superuser_dsn],
-        env={"ABH_ALLOW_TAMPER_DRILL": "1"},
+        env={**os.environ, "ABH_ALLOW_TAMPER_DRILL": "1"},
         capture_output=True,
         text=True,
         check=False,
