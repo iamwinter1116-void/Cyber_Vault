@@ -69,7 +69,16 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-04-alpha")
     lan_ip = os.environ.get("ABH_HOST_LAN_IP", "127.0.0.1")
-    targets = [(lan_ip, 443), (lan_ip, 5432), (lan_ip, 8000), ("1.1.1.1", 53), ("1.1.1.1", 443)]
+    gw_ips = {
+        net["Gateway"]
+        for c in docker_managed_inspect()
+        if c["Config"]["Labels"].get("abh.env_id") == env_a["id"]
+        for net in c["NetworkSettings"]["Networks"].values()
+        if net.get("Gateway")
+    }
+    targets = [(gw, p) for gw in gw_ips for p in (443, 5432, 8000)] + [
+        (lan_ip, 443), (lan_ip, 5432), (lan_ip, 8000), ("1.1.1.1", 53), ("1.1.1.1", 443),
+    ]
     for host, port in targets:
         job = exec_in_env(ca, csrfa, env_a["id"], f"probe_connect {host} {port} 3")
         out = json.loads(job["result"]["output"].strip().splitlines()[-1])
@@ -77,19 +86,26 @@ def test_t_iso_04_egress_and_control_plane_blocked(stack_url: str) -> None:
 
 
 def test_t_iso_05_cross_team_api_returns_404(stack_url: str) -> None:
-    """T-ISO-05: analyst.alpha gets 404 on every bravo environment call."""
-    ca, _ = login_as(stack_url, "analyst.alpha@abhedya.local")
+    """T-ISO-05: analyst.alpha gets 404 on every bravo environment call and zero bravo stream events."""
+    ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
     env_b = create_env_and_wait(cb, csrfb, "iso-05-bravo")
     bid = env_b["id"]
     assert ca.get(f"{API_BASE}/envs/{bid}").status_code == 404
     assert ca.get(f"{API_BASE}/envs/{bid}/metrics").status_code == 404
-    assert ca.post(f"{API_BASE}/envs/{bid}/stop").status_code in (403, 404)
-    assert ca.delete(f"{API_BASE}/envs/{bid}").status_code in (403, 404)
+    assert ca.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfa}).status_code == 404
+    assert ca.delete(f"{API_BASE}/envs/{bid}", headers={"X-CSRF-Token": csrfa}).status_code == 404
+    assert ca.post(f"{API_BASE}/envs/{bid}/exec", headers={"X-CSRF-Token": csrfa}, json={"command": "id"}).status_code == 404
+    with ca.stream("GET", f"{API_BASE}/stream") as stream:
+        cb.post(f"{API_BASE}/envs/{bid}/stop", headers={"X-CSRF-Token": csrfb})
+        for line in stream.iter_lines():
+            assert bid not in line, f"Cross-team stream leaked bravo env {bid}"
+            if line.startswith("event: heartbeat"):
+                break
 
 
 def test_t_iso_06_env_mounts_socket_and_flags(stack_url: str) -> None:
-    """T-ISO-06: No ABH_ vars, no docker.sock, read-only root, no flag_host, bravo cannot read alpha flag_env."""
+    """T-ISO-06: No ABH_ vars, no docker.sock, only allowed mounts, read-only root, flags protected."""
     ca, csrfa = login_as(stack_url, "analyst.alpha@abhedya.local")
     cb, csrfb = login_as(stack_url, "analyst.bravo@abhedya.local")
     env_a = create_env_and_wait(ca, csrfa, "iso-06-alpha")
@@ -99,6 +115,9 @@ def test_t_iso_06_env_mounts_socket_and_flags(stack_url: str) -> None:
     info = json.loads(env_job["result"]["output"].strip().splitlines()[-1])
     assert not any(v.startswith("ABH_") for v in info["env_vars"])
     assert info["uid"] == 1000
+    assert not any("docker.sock" in str(m) for m in info.get("mounts", []))
+    sock_check = exec_in_env(ca, csrfa, env_a["id"], "test -e /var/run/docker.sock")
+    assert sock_check["result"]["exit_code"] != 0
 
     w_job = exec_in_env(ca, csrfa, env_a["id"], "probe_write /etc/abhedya_test")
     assert json.loads(w_job["result"]["output"].strip().splitlines()[-1])["ok"] is False

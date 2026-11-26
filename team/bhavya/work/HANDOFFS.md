@@ -112,3 +112,19 @@ FOR PARTH (probe contract response):
   - For T-ISO-03 ICMP under cap_drop=ALL: updated test_t_iso_03_cross_team_network_isolation so ICMP asserts reachable==False only when sent==True, and records icmp_note via pytest record_property (in JUnit XML) as not testable when sent==False rather than counting an unsent probe as isolation evidence.
 ```
 
+```
+TASK: Fix Manas & Parth review gaps in VERSIONS.lock, collect_evidence, T-ISO-04..06, T-MON-02/04, T-WL-02, exec_in_env
+STATUS: done (local updates verified; live-stack execution awaits Manas primary VM)
+CHANGED:
+  - evidence/VERSIONS.lock (added docker==7.2.0, psycopg-binary==3.3.9, pydantic-settings==2.16.3; updated pyyaml==6.0.4)
+  - tools/collect_evidence.py (normalized trailing newline in evidence/bug-journal.md)
+  - evidence/bug-journal.md, evidence/INDEX.md, evidence/prior-art.md (regenerated)
+  - tests/security/conftest.py (exec_in_env deadline 65s -> 75s)
+  - tests/security/test_isolation.py (T-ISO-04 bridge gateway check; T-ISO-05 exec/stream check; T-ISO-06 mounts & docker.sock check)
+  - tests/security/test_monitoring.py (T-MON-02 30s SSE >=6 metrics; T-MON-04 10 events replayed once in order)
+  - tests/security/test_workloads.py (T-WL-02 detonation case, mode-0400 quarantine check, container/network/volume cleanup, EICAR source comment)
+OPEN NOTE FOR MANAS & PARTH:
+  - Acknowledged Parth's probe additions (probe_env mounts & cap_eff, disk_fill).
+  - Remaining CR/discussion items: T-ISO-01 (degraded-mode alert branch vs strict runsc) and T-ISO-03 (unsent ICMP under cap_drop=ALL) if a CR is needed for docs/06_VERIFICATION.md.
+```
+
