@@ -382,3 +382,55 @@ STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule 
   Docker call unverified; B0 never on Linux; live_pg_suite unrun; B7 blocked by the O9 CR; budget over.
 NEXT: wait for the CR/base-image decision and the lock entries; then B2 probes; Linux test window via Manas.
 ```
+
+## 2026-11-26 · Reduction pass, image + budget proposals, review of Bhavya 13b7902 · this commit
+
+```
+TASK: Manas's reply (14/14 live PG; decisions 1-5): reduction pass, concrete image CR; Bhavya's 13b7902 claims.
+STATUS: partial. Proposals written, not approved. No image pulled or built. Docker/runsc and B5 in-sandbox
+  exec checks remain PENDING (Manas's instruction).
+SYNC: `git merge --ff-only origin/integration` -> exit 0, at 76e6e16; no file in my paths changed.
+EVIDENCE RECEIVED: Manas 88323b8: `python -m pytest tests/unit/runner/live_pg_suite.py -q` -> exit 0,
+  "14 passed in 2.70s" on a disposable abhedya_test DB (removed afterwards). First real-PostgreSQL pass for
+  reconcile/collect/jobs SQL. Note: on his host `unittest discover` resolves another `tests` package, so the
+  pure-test command for him is `python -m pytest tests/unit/runner/test_launch.py
+  tests/unit/runner/test_templates.py tests/unit/runner/test_state.py tests/unit/runner/test_storage.py
+  tests/unit/runner/test_metrics.py tests/unit/runner/test_exec_policy.py -q`.
+CHANGED (code): services/runner/reconcile.py (DockerWork Protocol -> DockerOps under TYPE_CHECKING; unused
+  RuntimeChoice import removed), services/runner/templates.py (Template keeps name and containers only;
+  title/description/sizes still validated). Behaviour unchanged.
+CHANGED (docs, my folder): CR_PROPOSAL_sandbox_images.md (replaces the draft), CR_PROPOSAL_runner_budget.md,
+  JOURNAL.md, this file.
+COMMANDS AND RESULTS (Windows, Python 3.15.2, stdlib):
+  python -m unittest discover -s tests/unit/runner -t . -p "test_*.py" -> "Ran 50 tests ... OK", exit 0
+  python -m compileall -q services/runner -> exit 0
+  budget count (ast): 850 code / 1185 physical lines (was 857 / 1191)
+  registry: anonymous token from auth.docker.io; GET registry-1.docker.io/v2/library/python/manifests/
+    3.13-slim-trixie -> index sha256:7249d5587b78209a006dc4a3b5340678f84ea729239193aa559962cd8c1fce50,
+    linux/amd64 sha256:e123d49d13f666b842ae2b925bf30703910481c67c89edc0a6b42e09d2b2168d (2026-11-26T16:26Z)
+  PyPI JSON: psycopg-binary 3.3.9, PyYAML 6.0.4, pydantic-core 2.50.5 have Linux x86_64 wheels cp310-cp315;
+    pydantic-settings 2.16.3 requires Python >= 3.11 and python-dotenv; pydantic 2.14.4 pins pydantic-core 2.50.5.
+NOT RUN: ruff, mypy, pytest (not installed here); live_pg_suite after this commit (reconcile.py changed).
+REVIEW OF BHAVYA 13b7902 (now on integration via PR #14), checked against the code:
+  Correct: lock entries docker 7.2.0, psycopg-binary 3.3.9, pyyaml 6.0.4, pydantic-settings 2.16.3 (upload
+  times match my PyPI evidence); bug-journal.md ends with one newline; T-MON-02 stream >= 6 events / 30 s;
+  exec_in_env 75 s; T-ISO-05 exec 404 + stream; EICAR string is 68 bytes.
+  Defects found: (a) T-MON-04 takes last_id from `/events?limit=1`, but services/api/routes/monitor.py orders
+    `ORDER BY id` ascending, so it is the OLDEST id: the test replays 10 old events, not the 10 it generated,
+    and never opens/drops a first stream. (b) T-ISO-04 gateway set can be empty (sandbox networks use
+    gateway_mode_ipv4=isolated; UNVERIFIED whether inspect reports a Gateway) -> loop silently skipped; should
+    assert non-empty. lan_ip still defaults to 127.0.0.1; detonator loopback-only check (docs/06) still absent.
+    (c) T-ISO-06 uses info.get("mounts", []) -> passes if the field is missing; "only allowed mounts" not
+    asserted. (d) T-WL-02 detonation passes on any non-zero exit (127 if probe_connect is absent).
+    (e) EICAR: a URL comment was added; no record that the bytes were taken from that page.
+  Still open: lock lacks pydantic, fastapi, argon2-cffi, uvicorn, python-multipart, ruff, mypy, and the
+    transitive packages above; pytest 8.4.2 vs 9.2.0 and cryptography 50.0.0 vs 50.0.2 unresolved.
+FOR MANAS: please re-run live_pg_suite on this commit (14 tests; reconcile.py and templates.py changed).
+  Image CR and budget CR are ready for the four-person review. Decisions 4 (V1 same-path bind mount, not
+  selected until preflight) and 5 (dedicated non-root runner user via the measured socket gid; no chmod 666,
+  no privileged, no extra capabilities) are recorded as constraints for the runner Compose block.
+STANDING OPEN ITEMS: pids_limit per container (interpretation); failed-env rule unproven on Linux; every Docker
+  call unverified; B0 never on Linux; B5 in-sandbox exec tests pending; budget over (CR proposed); images not
+  built (CR proposed); B7 blocked by the O9 CR.
+NEXT: after approvals, B2 probes + target app + Dockerfiles in sandbox/; then the Linux test window.
+```
