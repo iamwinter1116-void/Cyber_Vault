@@ -12,6 +12,8 @@ Done when the database checks and every currently runnable target execute succes
 
 Local result on 26 November 2026: phase 1 command wiring and database checks complete. `make secrets` and `make db-up` exited 0; a fresh `abh-m1-check` Compose project initialized `abhedya_test` with nine tables, both audit protection triggers, and authenticated all three application roles, then was removed with its volume. Full-stack targets refused because the services are absent. `make openapi` still fails because the Python environment lacks `psycopg`; the package lock is incomplete. M1 remains partial.
 
+Additional local database evidence: after PR #14 recorded the runner's direct packages, a second disposable Docker Desktop project (`abh-pg-suite`) ran `tests/unit/runner/live_pg_suite.py` against real PostgreSQL: 14 passed. The project and its volume were removed. This does not verify Docker sandbox calls or any Linux/runsc condition. Phase 2 still needs the missing API/build dependency entries and owner image definitions.
+
 ## Phase 2 — Service build and Compose wiring
 
 Use the actual owner-provided image/build definitions, runtime command, health response, and dependency pins for `api`, `runner`, `notary`, and `proxy`. Verify only the proxy publishes a host port and only runner mounts the Docker socket. Run a clean stack and service-level health checks on Docker Desktop as local integration evidence. Leave Linux isolation acceptance open.
