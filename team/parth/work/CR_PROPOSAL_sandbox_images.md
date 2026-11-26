@@ -33,9 +33,19 @@ UNVERIFIED until the Linux build: the exact tools inside the slim base (expected
 | --- | --- | --- |
 | every exec-able container | `sh`, `timeout` (B5 argv), `df` (V2/V3 storage reading, docs/08 section 4) | base image (verify, step 7) |
 | `toolbox` | `curl` (Bhavya T-WL-01; B1 prompt), TCP-connect port scanner (B1 prompt), probes (B2) | `curl` from Debian trixie apt at build time, version recorded; scanner and probes in-repo Python |
-| `target` | the vulnerable app (section 5) | in-repo Python, no extra package |
+| `target` | the vulnerable app (section 5); probes, because T-ISO-04 applies to every sandbox shipped (Manas 2026-11-26) | in-repo Python, no extra package |
 | `detonator` | script interpreters (docs/08 section 6), `probe_connect` (Bhavya T-WL-02 calls it in the detonation script) | base `sh` and `python3`; probes copied in |
 | `runner` service | Python packages | see below |
+
+PID 1 must exit on SIGTERM in every container. Reason, from the code: the runner stops an env with
+`container.stop(timeout=10)` per container (objects.py), and the API stop route (services/api/routes/envs.py)
+writes only desired_state and an audit record, no activity event, so an analyst sees the stop only when the
+runner finishes it. On Linux a PID 1 without a SIGTERM handler ignores SIGTERM; `sleep infinity` and a plain
+`http.server` install none, so each stop would wait the full 10 s (about 20 s for app-target), beyond Bhavya's
+T-ISO-05 5 s control check. Proposal: the target app installs a SIGTERM handler; toolbox's command is a shell
+loop with `trap 'exit 0' TERM`. Not proposed: Docker's `init` option, because (as I understand Docker; to be
+confirmed on the host) it places the daemon's init binary into the container, an extra mount the section 8
+profile does not list. Whether runsc applies the same PID 1 rule is UNVERIFIED (step 7).
 
 Runner Python packages: the lock (evidence/VERSIONS.lock) has `docker==7.2.0`, `psycopg==3.3.9`,
 `psycopg-binary==3.3.9`, `psycopg-pool==3.3.3`, `pydantic-settings==2.16.3`, `pyyaml==6.0.4`. Installing them
@@ -75,6 +85,7 @@ target (B7) also draw on this budget later.
    'for t in sh timeout df stat test curl python3 perl; do command -v $t || echo MISSING $t; done'`, and
    `dpkg-query -W` for any apt package added.
 3. Each probe once inside a sandbox, output pasted; then B2's own isolation table (B2 done-when).
+   `time docker stop` of each container: must end well under the 10 s timeout (PID 1 handles SIGTERM).
 4. Then the existing tests in order: T-ISO-01..07, T-RES-01..06, T-WL-01, T-E2E-01, and B5's pending exec checks
    (hostile command, `sleep 70` -> timeout, 200000-byte output -> truncated).
 
