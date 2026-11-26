@@ -311,3 +311,12 @@ PENDING ON RESUME:
   - `make check-fast` (once `web/` lands and `require.py placeholders` / O9 CR is resolved), `make openapi`, and live stack/VM tests
   - `services/api` line-budget note in `team/henil/work/JOURNAL.md` (2058/1100)
 
+## 2026-11-26 · Role A review of Parth's two CR proposals (`CR_ENTRIES_FOR_09.md`)
+
+TASK: Review `team/parth/work/CR_PROPOSAL_sandbox_images.md`, `CR_PROPOSAL_runner_budget.md`, and `CR_ENTRIES_FOR_09.md`
+STATUS: synced with `origin/integration` (`59e49dc`)
+ROLE A DECISION:
+  - CR (sandbox/service base image `python:3.13-slim-trixie` by digest, `curl` in `toolbox`, Python stdlib probes/target, transitive PyPI lock with `--require-hashes`): **Yes (A)** — compatible with `services/api` and `services/notary` images.
+  - CR (`services/runner` code budget 800 -> 1000 for B6 file analysis): **Yes (A)** — no impact on API/notary contracts or DB interface.
+NEXT: Continue 5-min checks on `origin/integration` (`task-782`).
+
