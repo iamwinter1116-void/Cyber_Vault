@@ -213,3 +213,18 @@ COMMANDS RUN (Windows Python 3.11, detached Parth worktree): explicit `python -m
 VERIFIED FACTS: PR #12 touched only Parth-owned code/tests and his handoff. The live PostgreSQL suite requires a disposable database and explicit opt-in, and is excluded from ordinary test collection. The runner's 857/800 code-line overage is documented by Parth; B6 remains constrained. `team/manas/work/PROGRESS.md` now counts B5, giving 16/33 = 48.5% integrated implementation coverage.
 UNVERIFIED: 14 live PostgreSQL tests, Docker exec behavior, gVisor, isolation/resource tests, ruff/mypy, and the proposed sandbox image CR. G0–G4 and O1–O9 remain unaccepted.
 NEXT: Bhavya's dependency log and the four-person sandbox-image decision are needed before those dependent tests and image builds.
+
+## 2026-11-26 · Disposable PostgreSQL runner suite on Docker Desktop
+
+TASK: Exercise Parth's guarded real PostgreSQL suite without a Linux/runsc host, after Bhavya's dependency entries merged in PR #14.
+STATUS: 14 runner SQL tests passed as local database evidence; no sandbox Docker/runsc objective or gate accepted.
+HOST / BASE: Manas Windows laptop, `work/manas` synced to `integration` `0f8db47`. Existing `sfic-db-1` was left running and healthy.
+SETUP: Installed only recorded direct package versions into `T:\CyberVaultReview\pydeps-runner` with `pip --no-deps`: psycopg 3.3.9, psycopg-binary 3.3.9, psycopg-pool 3.3.3, docker 7.2.0, pydantic-settings 2.16.3, PyYAML 6.0.4, pytest 8.4.2, cryptography 50.0.0. The pre-existing host `pydantic` was 2.13.4 and is not recorded in VERSIONS.lock, so this is not a reproducible full-stack dependency lock.
+COMMANDS / RESULTS:
+  - Temporary Compose override set `POSTGRES_DB=abhedya_test`. The first attempt kept the database on `control` only; Docker Desktop did not publish the requested host port (`Test-NetConnection` false). No test ran on that attempt.
+  - The disposable `abh-pg-suite` project was recreated with a second, test-only `test_access` network and `127.0.0.1:55432:5432`; `docker port` showed the loopback binding. The repository Compose file was not changed.
+  - With `ABH_TEST_ALLOW_DISPOSABLE_DB=1`, separate owner and `abh_runner` DSNs, and the isolated package target on `PYTHONPATH`, `python -m pytest tests/unit/runner/live_pg_suite.py -q` -> exit 0, `14 passed in 2.70s`. Password values were read from ignored secret files and not printed.
+  - `docker compose -p abh-pg-suite ... down -v` -> exit 0; the disposable container, networks and volume were removed. `docker compose ps` still showed the normal `db` healthy.
+  - A read-only import attempt for Henil's live suite -> exit 1, `ModuleNotFoundError: No module named 'argon2'`. No unrecorded API package was installed and that suite was not run.
+VERIFIED: Real PostgreSQL transaction/role behavior for the 14 runner tests on Docker Desktop. NOT VERIFIED: Docker container launch/exec, gVisor, Linux isolation/resource limits, Henil's API/notary live suite, full Makefile or gate acceptance.
+NEXT OWNERS: Bhavya needs to record the remaining allowlisted API/build package versions (including `argon2-cffi`, `fastapi`, `pydantic`, `uvicorn`, `python-multipart`, `ruff`, `mypy`) before a reproducible API image and Henil suite can be run. Henil then handles any API/notary test failure. Parth's sandbox image CR and runner budget remain open.
