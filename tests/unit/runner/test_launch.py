@@ -9,8 +9,8 @@ from services.runner.launch import (
     ProfileError,
     build_create_kwargs,
     choose_runtime,
+    network_create_kwargs,
 )
-from services.runner.net import network_create_kwargs
 
 ENV = EnvRow("0b6f0c1e-1111-4222-8333-444455556666", "7d2a4f00-aaaa-4bbb-8ccc-dddddddddddd", "app-target",
              500, 256, 128, 128)

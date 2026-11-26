@@ -19,9 +19,9 @@ from services.runner.launch import (
     container_name,
     launch,
     net_name,
+    network_create_kwargs,
     volume_name,
 )
-from services.runner.net import create_network
 from services.runner.templates import container_specs, load_template
 
 MANAGED = "abh.managed=true"
@@ -38,7 +38,7 @@ class DockerOps:
         choice = choose_runtime(self.runtime, set(self.client.info().get("Runtimes") or {}), self.allow_degraded)
         specs = container_specs(load_template(self.templates_dir, env.template), env)
         if not self._exists(self.client.networks, net_name(env)):
-            create_network(self.client, env)
+            self.client.networks.create(**network_create_kwargs(env))
         kwargs = storage.volume_create_kwargs(env, method, self.volume_dir)
         if kwargs is not None and not self._exists(self.client.volumes, volume_name(env)):
             if method == "V1":

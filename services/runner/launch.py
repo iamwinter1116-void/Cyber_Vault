@@ -82,6 +82,14 @@ def net_name(env: EnvRow) -> str:
     return f"abh-env-{env.id}"
 
 
+def network_create_kwargs(env: EnvRow) -> dict[str, object]:
+    """Section 8 Network row for docker-py ``networks.create``: internal bridge, isolated gateway mode (the
+    option B0 check 6 tests); the firewall fallback of docs/08 is not implemented, so a host rejecting it
+    cannot provision."""
+    return {"name": net_name(env), "driver": "bridge", "internal": True,
+            "options": {"com.docker.network.bridge.gateway_mode_ipv4": "isolated"}, "labels": labels(env)}
+
+
 def volume_name(env: EnvRow) -> str:
     return f"abh-vol-{env.id}"
 
@@ -161,8 +169,6 @@ def build_create_kwargs(
 
 def launch(client: Any, env: EnvRow, spec: ContainerSpec, choice: RuntimeChoice, workspace: Mapping[str, object]) -> Any:
     """The only place the runner creates a container. ``client`` is a ``docker.DockerClient``."""
-    kwargs = build_create_kwargs(env, spec, choice, workspace)
-    image = kwargs.pop("image")
-    container = client.containers.create(image, **kwargs)
+    container = client.containers.create(**build_create_kwargs(env, spec, choice, workspace))
     container.start()
     return container
