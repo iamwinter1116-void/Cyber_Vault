@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi import UploadFile
 from services.api.middleware import ApiError
-from services.api.routes.envs import SIZES
+from services.api.quota import SIZES
 from services.api.routes.jobs import MAX_UPLOAD_BYTES, stream_to_quarantine
 
 

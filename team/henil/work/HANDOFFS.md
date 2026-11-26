@@ -227,3 +227,26 @@ OPEN RISKS / QUESTIONS FOR HUMANS:
   - Ready for Manas's M1 merge to `integration` and PR review of `work/henil` -> `integration`.
 NEXT: Sync `work/henil` with `origin/integration` once Manas lands M1, run `make check-fast` / `make openapi`, and prepare PR to `integration`.
 
+## 2026-11-26 · Self-audit & bug fixes (`auth.py`, `monitor.py`, `quota.py`, `envs.py`)
+
+TASK: Audit of `core/abh_core/`, `services/api/`, `services/notary/` against `contracts/schema.sql`, `contracts/rbac_matrix.yaml`, and `docs/04_CONTRACTS.md`
+STATUS: partial (all local unit/ruff/mypy/file-size checks pass; PostgreSQL/stack tests still pending)
+CHANGED:
+  - `services/api/routes/auth.py` (fixed bug where raising `ApiError` inside `conn.transaction()` rolled back `failed_logins`, `locked_until`, `auth.lockout`, `alert.login_bruteforce`, and denied `auth.login` audit records; reset `failed_logins` after expired lockout)
+  - `services/api/routes/monitor.py` (added `env.team_id` DB lookup fallback when `abh_metric` NOTIFY payload omits `team_id`)
+  - `services/api/quota.py` + `services/api/routes/envs.py` + `services/api/routes/jobs.py` (extracted `create_env_with_quota` so every file is <= 250 code lines)
+COMMANDS RUN (with exit codes):
+  $ wsl -d Ubuntu -- /home/henillol/.venv-cybervault/bin/ruff check /mnt/e/CyberVault/Cyber_Vault/core /mnt/e/CyberVault/Cyber_Vault/services /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (All checks passed!)
+  $ wsl -d Ubuntu -- env MYPYPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/mypy --strict /mnt/e/CyberVault/Cyber_Vault/core/abh_core /mnt/e/CyberVault/Cyber_Vault/services/api /mnt/e/CyberVault/Cyber_Vault/services/notary /mnt/e/CyberVault/Cyber_Vault/tests/unit -> 0 (Success: no issues found in 33 source files)
+  $ wsl -d Ubuntu -- env PYTHONPATH=/mnt/e/CyberVault/Cyber_Vault /home/henillol/.venv-cybervault/bin/pytest /mnt/e/CyberVault/Cyber_Vault/tests/unit -v -> 0 (29 passed in 2.74s)
+TESTS: 29/29 unit tests passed; 0 files > 250 code lines
+VERIFIED FACTS:
+  - Login failure/lockout DB updates and audit records now commit before `ApiError` is raised.
+  - Every file in `core/abh_core`, `services/api`, and `services/notary` is <= 250 non-comment code lines.
+UNVERIFIED / ASSUMED:
+  - Live PostgreSQL execution of the fixed login lockout/audit commit path and `abh_metric` fallback remains unverified until PostgreSQL is available.
+DEGRADED PATHS: none
+NEW DEPENDENCIES: none
+OPEN RISKS / QUESTIONS FOR HUMANS: none beyond pending PostgreSQL/VM test window.
+NEXT: Continue 5-min checks on `origin/integration` for Bhavya's contract suite and Manas's `Makefile` updates.
+

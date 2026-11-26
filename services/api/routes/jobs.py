@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from services.api.authz import ScopedAuth, authorize, record_denied
 from services.api.middleware import ApiError
-from services.api.routes.envs import create_env_with_quota
+from services.api.quota import create_env_with_quota
 from services.api.schemas import AiScanRequest, JobOut
 
 router = APIRouter(tags=["jobs"])

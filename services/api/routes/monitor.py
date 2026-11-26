@@ -114,6 +114,11 @@ class StreamHub:
         if channel == "abh_metric":
             data = cast(dict[str, object], json.loads(payload))
             team_id = cast(str | None, data.get("team_id"))
+            if team_id is None and data.get("env_id") is not None:
+                with pool.connection() as conn, conn.cursor() as cur:
+                    cur.execute("SELECT team_id::text FROM env WHERE id = %s", (str(data["env_id"]),))
+                    trow = cur.fetchone()
+                    team_id = str(trow[0]) if trow is not None else None
             self._publish("metric", team_id, f"event: metric\ndata: {payload}\n\n")
             return
         if channel == "abh_activity":
