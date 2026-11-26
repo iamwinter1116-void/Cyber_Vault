@@ -30,8 +30,6 @@ Completed 26 November 2026. `origin/integration` is `59e49dcab76e43f05f0737a3396
 
 ## Phase 1 — Database and real command interface
 
-## Phase 1 — Database and real command interface
-
 1. Verify the existing Compose database is healthy, the frozen schema is present, and the three application roles have distinct credentials and expected access.
 2. Wire every canonical Make target to a real implemented command or an explicit nonzero refusal naming the missing component. Preserve `preflight`, `secrets`, `db-up`, and `db-down`.
 3. Check Make parsing, run safe targets, inspect failure exits for unavailable stack pieces, and record exact results.
