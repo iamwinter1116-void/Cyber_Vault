@@ -143,3 +143,30 @@ Open: Parth PR #2 runner needs its six real PostgreSQL tests and dependency entr
 Henil's later API/notary code still has the denied-login audit rollback observed against PostgreSQL, an API
 line-budget overage, and unrun live checks. Bhavya's test/console branch has no open PR yet. No G0–G4 gate
 or Linux-dependent objective is green.
+
+## 2026-11-26 · Follow-up PR review after owner sync
+
+Task: review merge readiness of the current owner branches after integration at `26a71e0`. No additional merge
+was made in this review.
+
+- `origin/work/parth` at `e67a81b` is synced with integration. In a detached temporary worktree of that commit,
+  `python -m pytest tests/unit/runner/test_launch.py tests/unit/runner/test_templates.py
+  tests/unit/runner/test_state.py tests/unit/runner/test_storage.py -q` exited 0: 32 passed in 0.12 s.
+  `python -m compileall -q services/runner tests/unit/runner` exited 0. The six-case
+  `tests/unit/runner/test_reconcile_pg.py` was not run; Docker/runsc/storage calls remain untested. PR #2 stays open.
+- Earlier owner commit `400dfe9` was separately checked in a detached worktree: 22 tests passed using
+  `python -m unittest discover -s tests/unit/runner -p 'test_*.py' -v`, and compileall passed. A direct
+  module-path unittest invocation failed because this Windows Python installation resolves another `tests`
+  package first; discovery from the runner test directory passed. That commit has since been superseded by
+  Parth's wrapper removal, so it was not separately merged.
+- `origin/work/bhavya` at `b25ee1e` records `psycopg==3.3.9` and `psycopg-pool==3.3.3` but not
+  `psycopg-binary`, `docker`, or `pydantic-settings` in `evidence/VERSIONS.lock`. This Windows host has no
+  system `libpq`; installing the runner's requested `psycopg[binary,pool]` must wait for the binary entry.
+  `git diff --check origin/integration...origin/work/bhavya` reports a trailing blank line in
+  `evidence/bug-journal.md`; Bhavya's full branch has no PR and no live-stack test result.
+- `origin/work/henil` at `154a881` is synced with integration but its `auth.py` still raises `ApiError`
+  inside the transaction after appending denied-login audit events. Manas's real PostgreSQL test previously
+  observed zero denied rows after a 401. The full API branch has no PR and remains unmerged.
+
+Next: obtain the missing dependency log entries from Bhavya, run Parth's six tests on a disposable Compose
+database, and re-review PR #2. Henil owns the auth rollback fix. No Linux-host result is claimed.
